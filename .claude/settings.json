@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(docs/**)",
+      "Read(examples/**)",
+      "Read(knowledge/**)",
+      "Read(outputs/**)",
+      "Read(guides/**)",
+      "Write(outputs/**)",
+      "Write(guides/**)",
+      "Glob(docs/**)",
+      "Glob(examples/**)",
+      "Glob(knowledge/**)",
+      "Glob(guides/**)",
+      "Grep(docs/**)",
+      "Grep(examples/**)",
+      "Grep(knowledge/**)",
+      "Grep(guides/**)",
+      "Bash(uv run:*)",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "deny": []
+  }
+}
