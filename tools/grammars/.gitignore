@@ -1,0 +1,8 @@
+# Compiled grammar binaries (build locally)
+*.so
+*.dylib
+*.dll
+
+# Build artifacts
+tree-sitter-ic10/
+build/
