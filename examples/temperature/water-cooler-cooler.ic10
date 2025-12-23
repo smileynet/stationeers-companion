@@ -1,0 +1,53 @@
+# ==================================================
+# water-cooler-cooler
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/cooling/water-cooler-cooler.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d0 = externalSensor
+#   d1 = hotWaterSensor
+#   d2 = condensorSensor
+#   d3 = coolingVent
+#   d4 = waterSensor
+#
+# ==================================================
+﻿alias externalSensor d0
+alias hotWaterSensor d1
+alias condensorSensor d2
+alias coolingVent d3
+alias waterSensor d4
+
+define targetEvaporatorPressure 11.5
+define targetWaterTemp 293.15
+define evaporatorHash -1429782576
+define condensatorHash 1420719315
+
+alias externalTemp r14
+alias condensorCoolingLoopTemp r13
+alias hotWaterTemp r12
+loop:
+yield
+
+l externalTemp waterSensor Temperature
+blt externalTemp targetWaterTemp _stopEverything
+
+sb evaporatorHash On 1
+sb evaporatorHash Setting targetEvaporatorPressure
+sb condensatorHash On 1
+
+l externalTemp externalSensor Temperature
+l condensorCoolingLoopTemp condensorSensor Temperature
+slt r3 externalTemp condensorCoolingLoopTemp
+l hotWaterTemp hotWaterSensor Temperature
+slt r4 externalTemp hotWaterTemp
+select r5 r3 r4
+s coolingVent On r5
+
+j loop
+_stopEverything:
+s coolingVent On 0
+sb evaporatorHash On 0
+sb condensatorHash On 0
+j loop

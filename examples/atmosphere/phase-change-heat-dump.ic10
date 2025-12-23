@@ -1,0 +1,27 @@
+# Source: https://github.com/SnorreSelmer/stationeers_ic10/blob/main/scripts/phase-change-heat-dump.ic10
+# Repository: SnorreSelmer/stationeers_ic10
+#
+# This script is used to open and close a Digital Valve to dump heat from a
+# Condensation Chamber to Europa atmosphere.
+# Haven't tested it on Mars, but I assume it will just open the valve and leave it open.
+# I assume it will work the same as on Europa for vacuum worlds.
+
+alias condenser d0 # Condensation Chamber
+alias valve d1 # Digital Valve
+alias temp r0 # Temperature reading
+alias tempTarget r1 # Target temperature
+alias valveState r2 # Valve state (0=closed, 1=open)
+
+define LOWTHRESH 223.15 # -50C, non-freezing temp for Pollutants
+define HIGHTHRESH 323.15 # +50C
+
+move tempTarget HIGHTHRESH
+
+start:
+yield
+l temp condenser Temperature
+sgt valveState temp tempTarget
+select tempTarget valveState LOWTHRESH HIGHTHRESH
+s db Setting tempTarget # For debugging, not really needed
+s valve On valveState
+j start

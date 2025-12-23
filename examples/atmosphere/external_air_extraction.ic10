@@ -1,0 +1,58 @@
+# ==================================================
+# external_air_extraction
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/external_air_extraction.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d0 = tank
+#   d1 = theMachine
+#   d2 = externalVent
+#   d3 = daySensor
+#
+# ==================================================
+﻿# Pull in external air, and filter it till the output hits some desired pressure
+alias tank d0
+alias theMachine d1
+alias externalVent  d2
+alias daySensor d3
+
+# in kpa
+define DesiredIntakePressure 1000
+define DesiredMinTankPressure 15000
+define DesiredMaxTankPressure 20000
+
+loop:
+
+# do not run during day-time
+bdns daySensor pressureCheck
+l r0 daySensor Activate
+beq r0 1 dayTime
+
+pressureCheck:
+l r0 tank Pressure
+bgt r0 DesiredMaxTankPressure stopIntake
+blt r0 DesiredMinTankPressure startIntake
+j done
+
+dayTime:
+j stopIntake
+done:
+yield
+j loop
+
+startIntake:
+s db Setting 1
+s theMachine On 1
+s externalVent PressureInternal DesiredIntakePressure
+s externalVent Mode 1
+s externalVent Lock 1
+s externalVent On 1
+j done
+stopIntake:
+s db Setting 0
+s externalVent On 0
+s externalVent Lock 0
+s theMachine On 0
+j done

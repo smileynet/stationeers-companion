@@ -1,0 +1,74 @@
+# ==================================================
+# external_air_extraction2
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/external_air_extraction2.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d1 = hotTank
+#   d2 = coldTank
+#   d3 = greenhouseSensor
+#   d4 = greenhouseCo2Vent
+#   d5 = coolingPump
+#
+# ==================================================
+﻿alias hotTank d1
+alias coldTank d2
+alias greenhouseSensor d3
+alias greenhouseCo2Vent d4
+alias coolingPump d5
+
+# in kpa/celcius
+define roomMinPressure 95
+define roomMaxPressure 100
+define roomMaxTemperature 36
+
+define hotTankMaxPressure 2000
+define coldTankMaxPressure 10000 
+
+define coldTankMaxTemperature 30
+
+define filtrationHash -348054045
+define ventMode 0
+define fillMode 1
+
+loop:
+
+l r0 hotTank Pressure
+slt r0 r0 hotTankMaxPressure
+sb filtrationHash On r0
+
+l r0 coldTank Pressure
+blt r0 coldTankMaxPressure __coldTankNotFull
+s coolingPump On 0
+__coldTankNotFull:
+
+l r0 greenhouseSensor Temperature
+sub r13 r0 273.15
+s db Setting r13
+bgt r13 roomMaxTemperature __stopVent
+
+l r0 coldTank Temperature
+sub r14 r0 273.15
+bgt r14 coldTankMaxTemperature __stopVent
+
+l r0 greenhouseSensor Pressure
+bgt r0 roomMaxPressure __stopVent
+blt r0 roomMinPressure __startVent
+
+done:
+yield
+j loop
+
+__startVent:
+s greenhouseCo2Vent Mode ventMode
+s greenhouseCo2Vent PressureExternal 100
+s greenhouseCo2Vent On 1
+j done
+
+__stopVent:
+s greenhouseCo2Vent Mode ventMode
+s greenhouseCo2Vent PressureExternal 100
+s greenhouseCo2Vent On 0
+j done

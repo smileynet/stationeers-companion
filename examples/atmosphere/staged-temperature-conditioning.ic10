@@ -1,0 +1,83 @@
+# ==================================================
+# staged-temperature-conditioning
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/staged-temperature-conditioning.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d0 = air_sensor
+#   d1 = pump
+#   d2 = valve
+#   d3 = pipe_sensor
+#
+# ==================================================
+﻿# vulcan day is significantly hotter than night
+# pump coolant into a radiator ray during night, and out during the day
+# a valve is used to near instantly fill the radiator
+# while a pump is used to extract gas once it is too hot
+
+alias air_sensor d0
+alias pump d1
+alias valve d2
+alias pipe_sensor d3
+
+# celcius
+define airTempCooling 180
+define airTempHeating 160
+
+alias stoppedPump r15
+alias oldAirTemp r14
+alias airTemp r13
+
+move stoppedPump 0
+l r0 air_sensor Temperature
+sub oldAirTemp r0 273.15
+
+loop:
+l r0 air_sensor Temperature
+sub airTemp r0 273.15
+
+l r1 pipe_sensor TotalMoles
+s db Setting r1
+
+blt airTemp oldAirTemp airCooling
+airHeating:
+bgtal airTemp airTempHeating stopRadiatorCooling
+
+l r0 pump On
+beqz r0 tempCheckDone
+blezal r1 stopPump
+bneal r1 r1 stopPump # Check NaN
+
+j tempCheckDone
+airCooling:
+bltal airTemp airTempCooling startRadiatorCooling
+tempCheckDone:
+move oldAirTemp airTemp
+
+done:
+yield
+j loop
+
+startRadiatorCooling:
+move stoppedPump 0
+s valve On 1
+s pump On 0
+j ra
+
+stopRadiatorCooling:
+s valve On 0
+bnez stoppedPump stopRadiatorCooling_prolog
+yield
+l r0 pump Maximum
+s pump Setting r0
+s pump On 1
+yield
+stopRadiatorCooling_prolog:
+j ra
+
+stopPump:
+move stoppedPump 1
+s pump On 0
+j ra

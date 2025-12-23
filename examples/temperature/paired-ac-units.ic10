@@ -1,0 +1,98 @@
+# ==================================================
+# paired-ac-units
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/cooling/paired-ac-units.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d1 = debugOuput
+#
+# ==================================================
+﻿alias debugOuput d1
+
+define minTemperature 183.15
+define maxTemperature 973.15
+
+alias isCooling r11
+alias tempSetting r12
+alias lastTempSetting r13
+alias debugState r14
+l lastTempSetting db Setting
+move debugState 0
+s db Open 0
+loop:
+yield
+
+# detect configuration
+l tempSetting db Setting
+beq tempSetting lastTempSetting skipConfigChange
+slt r1 tempSetting lastTempSetting
+select r1 r1 minTemperature maxTemperature
+s db Setting r1
+move lastTempSetting tempSetting
+skipConfigChange:
+
+# disable AC if the window is open
+l r0 db Open
+move ra loop
+bnez r0 disableAC_open
+
+# sanity checks on inputs
+l r1 db TotalMolesInput
+l r2 db TotalMolesOutput
+beqz r2 enableAC_noInput
+# Not enough input fluid: input <= average - 45%
+add r0 r1 r2
+div r0 r0 2
+mul r3 r0 0.45
+ble r1 r3 disableAC_lowInput
+
+# determine is input/output is at the right temperature
+beq tempSetting minTemperature checkOutput
+l r0 db TemperatureInput
+blt r0 minTemperature disableAC_coldInput
+j enableAC_startInput
+checkOutput:
+l r0 db TemperatureOutput
+blt r0 minTemperature disableAC_coldOutput
+j enableAC_startOuput
+
+readTemperature:
+# when cooling, check the output temperature
+l r0 db TemperatureOutput
+beq tempSetting minTemperature ra
+l r0 db TemperatureInput
+j ra
+
+enableAC_startOuput:
+move debugState 3
+j enableAC
+enableAC_startInput:
+move debugState 2
+j enableAC
+enableAC_noInput:
+move debugState 1
+j enableAC
+disableAC_open:
+move debugState -1
+j disableAC
+disableAC_lowInput:
+move debugState -2
+j disableAC
+disableAC_coldInput:
+move debugState -3
+j disableAC
+disableAC_coldOutput:
+move debugState -4
+j disableAC
+enableAC:
+s db Mode 1 
+bdns debugOuput loop
+s debugOuput Setting debugState
+j loop
+disableAC:
+s db Mode 0
+bdns debugOuput loop
+s debugOuput Setting debugState
+j loop

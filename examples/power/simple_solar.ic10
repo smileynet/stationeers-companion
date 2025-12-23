@@ -1,0 +1,26 @@
+# ==================================================
+# Simple_Solar
+# ==================================================
+# Source: https://github.com/drclaw1188/stationeers_ic10/blob/main/power/Simple_Solar.ic10
+# Repository: drclaw1188/stationeers_ic10
+# Category: power
+#
+# Devices:
+#   d0 = DaylightSensor
+#
+# ==================================================
+alias DaylightSensor d0
+
+define SOLARPANEL -2045627372
+
+start:
+yield
+
+l r0 DaylightSensor Horizontal
+sb SOLARPANEL Horizontal r0
+
+l r0 DaylightSensor Vertical
+sub r0 90 r0
+sb SOLARPANEL Vertical r0
+
+j start

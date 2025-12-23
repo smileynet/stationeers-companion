@@ -1,0 +1,43 @@
+# ==================================================
+# Battery Monitor with Generator Backup
+# ==================================================
+# Turns on a generator when battery gets low,
+# turns it off when battery is charged.
+#
+# Devices:
+#   d0 = Battery (any type)
+#   d1 = Solid Fuel Generator (or Gas Generator)
+#
+# Settings:
+#   LOW_THRESHOLD  = 0.2 (20%) - Generator turns ON
+#   HIGH_THRESHOLD = 0.8 (80%) - Generator turns OFF
+#
+# This uses "hysteresis" - two thresholds prevent
+# the generator from rapidly switching on/off.
+#
+# ==================================================
+
+alias battery d0
+alias generator d1
+
+define LOW 0.2
+define HIGH 0.8
+
+alias charge r0
+alias genState r1
+
+main:
+l charge battery Ratio           # Read charge level (0-1)
+l genState generator On          # Read current generator state
+
+# If charge < LOW, turn generator ON
+slt r2 charge LOW
+or genState genState r2
+
+# If charge > HIGH, turn generator OFF
+sgt r2 charge HIGH
+select genState r2 0 genState
+
+s generator On genState          # Apply state
+yield
+j main

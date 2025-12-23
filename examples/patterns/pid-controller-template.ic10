@@ -1,0 +1,113 @@
+# ============================================
+# PID Controller Template
+# ============================================
+# Description: Proportional-Integral-Derivative controller for smooth control
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = sensor    - Input sensor (reads current value)
+#   d1 = actuator  - Output device (receives PID output)
+#   d2 = dial      - Target setpoint input (optional)
+#   d3 = display   - Error/output display (optional)
+#
+# PID Theory:
+#   Output = Kp*Error + Ki*Integral + Kd*Derivative
+#   - Kp: Proportional gain (immediate response)
+#   - Ki: Integral gain (eliminates steady-state error)
+#   - Kd: Derivative gain (reduces overshoot)
+#
+# Tuning:
+#   Start with Kp only, then add Ki, then Kd
+#   Increase Kp until oscillation, then reduce by half
+#   Add small Ki to eliminate offset
+#   Add small Kd to reduce overshoot
+# ============================================
+
+# === ALIASES ===
+alias sensor d0
+alias actuator d1
+alias dial d2
+alias display d3
+
+# Input/Output registers
+alias rCurrent r0         # Current sensor value
+alias rTarget r1          # Target setpoint
+alias rOutput r2          # PID output
+
+# PID calculation registers
+alias rError r3           # Current error
+alias rIntegral r4        # Accumulated error
+alias rDerivative r5      # Rate of change
+alias rLastError r6       # Previous error
+
+# Temporary registers
+alias rP r7               # Proportional term
+alias rI r8               # Integral term
+alias rD r9               # Derivative term
+
+# === PID GAINS ===
+# Adjust these values for your application
+define KP 1.0             # Proportional gain
+define KI 0.1             # Integral gain
+define KD 0.05            # Derivative gain
+
+# === LIMITS ===
+define TARGET_DEFAULT 100 # Default target if no dial
+define OUTPUT_MIN 0       # Minimum output value
+define OUTPUT_MAX 100     # Maximum output value
+define INTEGRAL_MAX 500   # Anti-windup limit
+
+# === INITIALIZATION ===
+move rIntegral 0
+move rLastError 0
+
+# === MAIN LOOP ===
+main:
+
+# --- Read Inputs ---
+l rCurrent sensor Setting
+# Read target from dial, or use default
+bdns dial useDefault
+l rTarget dial Setting
+j calcError
+useDefault:
+move rTarget TARGET_DEFAULT
+
+# --- Calculate Error ---
+calcError:
+sub rError rTarget rCurrent
+
+# --- Proportional Term ---
+mul rP rError KP
+
+# --- Integral Term ---
+# Accumulate error (with anti-windup)
+add rIntegral rIntegral rError
+max rIntegral rIntegral -INTEGRAL_MAX
+min rIntegral rIntegral INTEGRAL_MAX
+mul rI rIntegral KI
+
+# --- Derivative Term ---
+sub rDerivative rError rLastError
+mul rD rDerivative KD
+move rLastError rError
+
+# --- Combine Terms ---
+add rOutput rP rI
+add rOutput rOutput rD
+
+# --- Clamp Output ---
+max rOutput rOutput OUTPUT_MIN
+min rOutput rOutput OUTPUT_MAX
+
+# --- Apply Output ---
+s actuator Setting rOutput
+
+# --- Update Display (optional) ---
+bdns display endTick
+s display Setting rError
+
+# === END TICK ===
+endTick:
+yield
+j main

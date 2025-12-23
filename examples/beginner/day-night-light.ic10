@@ -1,0 +1,26 @@
+# ==================================================
+# Day/Night Light Controller
+# ==================================================
+# Your first IC10 script! Turns lights on at night,
+# off during the day.
+#
+# Devices:
+#   d0 = Daylight Sensor
+#   d1 = Light (any type)
+#
+# How it works:
+#   1. Read if it's day (1) or night (0) from sensor
+#   2. Invert the value (day=off, night=on)
+#   3. Send to light
+#
+# ==================================================
+
+alias sensor d0
+alias light d1
+
+main:
+l r0 sensor Activate      # Read daylight (1=day, 0=night)
+seqz r0 r0                # Invert: 1 becomes 0, 0 becomes 1
+s light On r0             # Turn light on/off
+yield                     # Wait one tick
+j main                    # Repeat forever

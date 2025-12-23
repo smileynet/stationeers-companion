@@ -1,0 +1,37 @@
+# ==================================================
+# Beacon_And_Lights
+# ==================================================
+# Source: https://github.com/drclaw1188/stationeers_ic10/blob/main/storm_alarm_beacon_lights/Beacon_And_Lights.ic10
+# Repository: drclaw1188/stationeers_ic10
+# Category: atmosphere
+#
+# Devices:
+#   d0 = ProximitySensor
+#   d1 = WeatherStation
+#   d2 = WeatherTimeLED
+#   d3 = WeatherTransmitter
+#
+# ==================================================
+alias ProximitySensor d0
+alias WeatherStation d1
+alias WeatherTimeLED d2
+alias WeatherTransmitter d3
+
+define BEACON -188177083
+define FLASHINGLIGHTS -1535893860
+
+start:
+yield
+
+l r0 ProximitySensor Quantity
+seqz r0 r0
+sb BEACON On r0
+
+l r0 WeatherStation Mode
+sb FLASHINGLIGHTS On r0
+s WeatherTransmitter Setting r0
+
+l r0 WeatherStation NextWeatherEventTime
+s WeatherTimeLED Setting r0
+
+j start

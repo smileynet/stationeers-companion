@@ -1,0 +1,19 @@
+# Source: https://github.com/SnorreSelmer/stationeers_ic10/blob/main/old-scripts/mush_cooler.ic10
+# Repository: SnorreSelmer/stationeers_ic10
+#
+# Connect mush-pipe to Heat Exchanger, use Digital
+# Valve to expose heat-exchanger to radiators
+
+alias PipeAnalyzer d0
+alias DigitalValve d1
+
+alias valvetemp r0
+
+define MAXTEMP 303.15 # 30C
+
+start:
+yield
+l valvetemp PipeAnalyzer Temperature
+sgt valvetemp valvetemp MAXTEMP
+s DigitalValve On valvetemp
+j start

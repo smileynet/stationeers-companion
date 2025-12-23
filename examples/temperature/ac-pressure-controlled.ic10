@@ -1,0 +1,59 @@
+# ==================================================
+# ac-pressure-controlled
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/ac-pressure-controlled.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   db = ac
+#
+# ==================================================
+﻿alias ac db
+
+define MinInputPressure 100
+define MaxOutputPressure 5000
+alias targetTemp r15
+
+s ac Open 0
+s ac Lock 0
+s ac Mode 0
+l targetTemp ac Setting
+start:
+yield
+
+l r0 ac PressureInput
+blt r0 MinInputPressure stopAc
+
+jal safeyChecks
+
+l r0 ac Mode
+beqz r0 pulseCheck
+efficiencyCheck:
+l r0 ac TemperatureDifferentialEfficiency
+blt r0 0.5 stopAc
+l r0 ac OperationalTemperatureEfficiency
+blt r0 0.5 stopAc
+
+startAC:
+s ac Mode 1
+j start
+stopAc:
+s ac Mode 0
+j start
+pulseCheck:
+sleep 1
+jal safeyChecks
+s ac Mode 1
+yield
+jal safeyChecks
+j efficiencyCheck
+safeyChecks:
+# safety check output pressure
+l r0 ac PressureOutput
+bgt r0 MaxOutputPressure stopAc
+l r0 ac PressureOutput2
+bgt r0 MaxOutputPressure stopAc
+l r0 ac Open
+bnez r0 stopAc
+j ra

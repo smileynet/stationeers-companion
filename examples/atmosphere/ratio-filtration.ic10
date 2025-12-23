@@ -1,0 +1,126 @@
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/ratio-filtration.ic10
+# Repository: Xon/stationeers-ic-scripts
+#
+# activates filtration based on ratios not being desirable
+
+alias Sensor d0
+alias O2_Filter d1
+alias N20_Filter d1
+alias CO2_Filter d2
+alias N2_Filter d3
+alias X_Filter d4
+alias H2_Filter d5
+
+define DesiredRatioOxygen 0.2
+define DesiredRatioCarbonDioxide 0.04
+define DesiredRatioNitrogen 0.66
+define DesiredRatioPollutant 0
+define DesiredRatioVolatiles 0
+define DesiredRatioNitrousOxide 0
+define minPressureOfGoodGasses 2000
+
+loop:
+
+l r0 Sensor Pressure
+blt r0 minPressureOfGoodGasses nastyGasses
+goodGasses:
+#jal __checkOxygen
+jal __checkCarbonDioxide
+jal __checkNitrogen
+nastyGasses:
+jal __checkNitrousOxide
+jal __checkPollutant
+jal __checkVolatiles
+done:
+yield
+j loop
+
+__checkOxygen:
+push r0
+bdns O2_Filter __checkOxygen_prolog
+l r0 Sensor RatioOxygen
+bne r0 r0 disableFilterOxygen # Check NaN ratio
+bgt r0 DesiredRatioOxygen removeOxygen
+disableFilterOxygen:
+s O2_Filter On 0
+j __checkOxygen_prolog
+removeOxygen:
+s O2_Filter On 1
+__checkOxygen_prolog:
+pop r0
+j ra
+
+__checkCarbonDioxide:
+push r0
+bdns CO2_Filter __checkCarbonDioxide_prolog
+l r0 Sensor RatioCarbonDioxide
+bne r0 r0 disableFilterCarbonDioxide # Check NaN ratio
+bgt r0 DesiredRatioCarbonDioxide removeCarbonDioxide
+disableFilterCarbonDioxide:
+s CO2_Filter On 0
+j __checkCarbonDioxide_prolog
+removeCarbonDioxide:
+s CO2_Filter On 1
+__checkCarbonDioxide_prolog:
+pop r0
+j ra
+
+__checkNitrogen:
+push r0
+bdns N2_Filter __checkNitrogen_prolog
+l r0 Sensor RatioNitrogen
+bne r0 r0 disableFilterNitrogen # Check NaN ratio
+bgt r0 DesiredRatioNitrogen removeNitrogen
+disableFilterNitrogen:
+s N2_Filter On 0
+j __checkNitrogen_prolog
+removeNitrogen:
+s N2_Filter On 1
+__checkNitrogen_prolog:
+pop r0
+j ra
+
+__checkNitrousOxide:
+push r0
+bdns N20_Filter __checkNitrousOxide_prolog
+l r0 Sensor RatioNitrousOxide
+bne r0 r0 disableFilterNitrousOxide # Check NaN ratio
+bgt r0 DesiredRatioNitrousOxide removeNitrousOxide
+disableFilterNitrousOxide:
+s N20_Filter On 0
+j __checkNitrousOxide_prolog
+removeNitrousOxide:
+s N20_Filter On 1
+__checkNitrousOxide_prolog:
+pop r0
+j ra
+
+__checkPollutant:
+push r0
+bdns X_Filter __checkPollutant_prolog
+l r0 Sensor RatioPollutant
+bne r0 r0 disableFilterPollutant # Check NaN ratio
+bgt r0 DesiredRatioVolatiles removePollutant
+disableFilterPollutant:
+s X_Filter On 0
+j __checkPollutant_prolog
+removePollutant:
+s X_Filter On 1
+__checkPollutant_prolog:
+pop r0
+j ra
+
+__checkVolatiles:
+push r0
+bdns H2_Filter __checkVolatiles_prolog
+l r0 Sensor RatioVolatiles
+bne r0 r0 disableFilterVolatiles # Check NaN ratio
+bgt r0 DesiredRatioVolatiles removeVolatiles
+disableFilterVolatiles:
+s H2_Filter On 0
+j __checkVolatiles_prolog
+removeVolatiles:
+s H2_Filter On 1
+__checkVolatiles_prolog:
+pop r0
+j ra

@@ -1,0 +1,66 @@
+# Source: https://github.com/jhillacre/stationeers-scripts/blob/main/active-vent-set-controller.ic10
+# Repository: jhillacre/stationeers-scripts
+#
+# drives a bank of active vents from one command
+# set RESPINT when internal vents are the target
+# mirror a memory to broadcast modes to other banks
+alias ventCmd d0
+alias extSensor d1
+
+define CMD_CLEAR 0
+define CMD_EXH_OUT 1
+define CMD_EXH_IN 2
+define CMD_INT_OUT 3
+define CMD_INT_IN 4
+define CMD_OFF_OUT 5
+define CMD_OFF_IN 6
+define CMD_STOP 7
+
+define ACTIVEVENT -1129453144
+define RESPINT 0
+define CLEARCMDSLEEP 0.5
+
+alias doExh r8
+alias doInt r9
+alias doOff r10
+
+init:
+sb ACTIVEVENT Lock 0
+select doExh RESPINT CMD_EXH_IN CMD_EXH_OUT
+select doInt RESPINT CMD_INT_IN CMD_INT_OUT
+select doOff RESPINT CMD_OFF_IN CMD_OFF_OUT
+
+main:
+yield
+l r0 ventCmd Setting
+beq r0 doExh exhaust
+beq r0 doInt intake
+beq r0 doOff off
+beq r0 CMD_STOP off
+j main
+
+exhaust:
+sb ACTIVEVENT Lock 1
+sb ACTIVEVENT Mode 1
+sb ACTIVEVENT PressureInternal 40000
+sb ACTIVEVENT PressureExternal 0
+sb ACTIVEVENT On 1
+j clear
+
+intake:
+sb ACTIVEVENT Lock 1
+sb ACTIVEVENT Mode 0
+sb ACTIVEVENT PressureInternal 0
+l r0 extSensor Pressure
+sb ACTIVEVENT PressureExternal r0
+sb ACTIVEVENT On 1
+j clear
+
+off:
+sb ACTIVEVENT On 0
+sb ACTIVEVENT Lock 0
+
+clear:
+sleep CLEARCMDSLEEP
+s ventCmd Setting CMD_CLEAR
+j main

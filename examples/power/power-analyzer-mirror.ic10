@@ -1,0 +1,19 @@
+# Source: https://github.com/jhillacre/stationeers-scripts/blob/main/power-analyzer-mirror.ic10
+# Repository: jhillacre/stationeers-scripts
+#
+# mirror supply actual/potential and load required
+alias cableanalin d0
+alias cableanalout d1
+alias memorya d3
+alias memoryp d4
+alias memoryr d5
+
+init:
+l r0 cableanalin PowerActual
+l r1 cableanalin PowerPotential
+l r2 cableanalout PowerRequired
+s memorya Setting r0
+s memoryp Setting r1
+s memoryr Setting r2
+yield
+j init

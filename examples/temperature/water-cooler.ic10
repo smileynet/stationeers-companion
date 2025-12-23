@@ -1,0 +1,38 @@
+# ==================================================
+# water-cooler
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/cooling/water-cooler.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d0 = coldSideSensor
+#   d1 = hotWaterPump
+#   d2 = waterSensor
+#
+# ==================================================
+﻿alias coldSideSensor d0
+alias hotWaterPump d1
+alias waterSensor d2
+
+define targetWaterTemp 293.15
+define targetWaterPressure 2000
+define intakeWaterTemp 303.15
+
+loop:
+yield
+
+l r0 waterSensor Temperature
+bge r0 targetWaterTemp _stopPump
+l r0 waterSensor Pressure
+bge r0 targetWaterPressure _stopPump
+
+l r0 coldSideSensor Temperature
+bge r0 intakeWaterTemp _stopPump
+
+s hotWaterPump On 1
+j loop
+
+_stopPump:
+s hotWaterPump On 0
+j loop

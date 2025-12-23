@@ -1,0 +1,28 @@
+# Source: https://github.com/SnorreSelmer/stationeers_ic10/blob/main/old-scripts/auto_arc_furnace.ic10
+# Repository: SnorreSelmer/stationeers_ic10
+#
+# Connect Arc Furnaces to the screws, that's all!
+
+alias ImportOccupied r0
+alias Active r1
+
+move r2 0
+
+start:
+bdseal dr2 run
+add r2 r2 1
+bgt r2 5 reset
+j start
+
+run:
+s dr2 On 1
+l Active dr2 Activate
+bgtz Active ra
+ls ImportOccupied dr2 0 Occupied
+s dr2 Activate ImportOccupied
+j ra
+
+reset:
+yield
+move r2 0
+j start

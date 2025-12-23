@@ -1,0 +1,29 @@
+# ==================================================
+# external-cooler
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/cooling/external-cooler.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d0 = externalSensor
+#   d1 = hotSideSensor
+#   d2 = poweredVent
+#
+# ==================================================
+alias externalSensor d0
+alias hotSideSensor d1
+alias poweredVent d2
+
+s poweredVent Mode 1
+loop:
+yield
+
+l r1 externalSensor Temperature
+l r2 hotSideSensor Temperature
+
+slt r0 r1 r2
+s poweredVent On r0
+s db Setting r0
+
+j loop

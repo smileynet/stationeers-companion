@@ -1,0 +1,113 @@
+# ============================================
+# Hysteresis Controller Template
+# ============================================
+# Description: Bang-bang control with deadband to prevent oscillation
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = sensor    - Input sensor
+#   d1 = actuator  - On/off actuator
+#   d2 = display   - Status display (optional)
+#
+# How Hysteresis Works:
+#   - Turn ON when value drops BELOW (target - deadband)
+#   - Turn OFF when value rises ABOVE (target + deadband)
+#   - Do NOTHING when value is within the deadband
+#   - Prevents rapid on/off cycling (oscillation)
+#
+#            OFF                 ON
+#      <------------|   |------------>
+#               LOW_THRESH  HIGH_THRESH
+#                    |-----|
+#                   DEADBAND
+#
+# Applications:
+#   - Temperature control (heater/cooler)
+#   - Pressure regulation (pump/vent)
+#   - Level control (fill/drain)
+# ============================================
+
+# === ALIASES ===
+alias sensor d0
+alias actuator d1
+alias display d2
+
+alias rValue r0           # Current sensor value
+alias rState r1           # Current actuator state
+alias rNewState r2        # Calculated new state
+alias rTemp r3            # Temporary calculations
+
+# === CONFIGURATION ===
+# Adjust for your application
+define TARGET 101.325     # Target value (e.g., 1 atm in kPa)
+define DEADBAND 5         # Deadband size (+/- from target)
+
+# Calculated thresholds
+define HIGH_THRESHOLD 106.325  # TARGET + DEADBAND (turn OFF)
+define LOW_THRESHOLD 96.325    # TARGET - DEADBAND (turn ON)
+
+# === INITIALIZATION ===
+move rState 0             # Start with actuator off
+
+# === MAIN LOOP ===
+main:
+
+# --- Read Current Value ---
+l rValue sensor Pressure  # Change to Temperature, etc. as needed
+
+# --- Read Current State ---
+l rState actuator On
+
+# --- Hysteresis Logic ---
+# Check if above high threshold (should turn OFF)
+sgt rTemp rValue HIGH_THRESHOLD
+bnez rTemp turnOff
+
+# Check if below low threshold (should turn ON)
+slt rTemp rValue LOW_THRESHOLD
+bnez rTemp turnOn
+
+# Within deadband - maintain current state
+j applyState
+
+turnOff:
+move rNewState 0
+j applyState
+
+turnOn:
+move rNewState 1
+j applyState
+
+# --- Apply State ---
+applyState:
+# Only write if state changed (optional optimization)
+beq rState rNewState updateDisplay
+s actuator On rNewState
+move rState rNewState
+
+# --- Update Display (optional) ---
+updateDisplay:
+bdns display endTick
+s display Setting rValue
+
+# === END TICK ===
+endTick:
+yield
+j main
+
+# ============================================
+# ALTERNATIVE: Compact Hysteresis
+# ============================================
+# If you need to save lines, use this pattern:
+#
+# main:
+# l r0 sensor Pressure
+# l r1 actuator On
+# sgt r2 r0 HIGH_THRESHOLD   # Above high? -> should be OFF
+# slt r3 r0 LOW_THRESHOLD    # Below low? -> should be ON
+# select r4 r2 0 r1          # If above high, 0; else keep state
+# select r4 r3 1 r4          # If below low, 1; else keep previous
+# s actuator On r4
+# yield
+# j main
+# ============================================

@@ -1,0 +1,29 @@
+# ==================================================
+# Simple Solar Tracker
+# ==================================================
+# Makes solar panels follow the sun using a
+# daylight sensor as the reference.
+#
+# Devices:
+#   d0 = Daylight Sensor
+#   d1 = Solar Panel (Heavy or Tracked)
+#
+# The daylight sensor's Horizontal and Vertical
+# values tell us where the sun is. We copy these
+# directly to the solar panel.
+#
+# ==================================================
+
+alias sensor d0
+alias panel d1
+
+alias sunH r0
+alias sunV r1
+
+main:
+l sunH sensor Horizontal         # Sun's horizontal angle
+l sunV sensor Vertical           # Sun's vertical angle
+s panel Horizontal sunH          # Point panel horizontal
+s panel Vertical sunV            # Point panel vertical
+yield
+j main

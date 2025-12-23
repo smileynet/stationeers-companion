@@ -1,0 +1,104 @@
+# ============================================
+# State Machine Template
+# ============================================
+# Description: Generic state machine pattern for multi-phase processes
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = sensor     - Input sensor for state transitions
+#   d1 = actuator1  - Primary actuator
+#   d2 = actuator2  - Secondary actuator
+#   d3 = display    - Status display (optional)
+#
+# States:
+#   0 = IDLE      - Waiting for trigger
+#   1 = PHASE_1   - First phase of operation
+#   2 = PHASE_2   - Second phase of operation
+#   3 = COMPLETE  - Operation finished, return to idle
+#
+# Usage:
+#   Modify state logic and transitions for your process
+#   Add more states as needed (up to 16 using a register)
+# ============================================
+
+# === ALIASES ===
+alias sensor d0
+alias actuator1 d1
+alias actuator2 d2
+alias display d3
+
+alias rState r10          # Current state
+alias rValue r0           # Sensor reading
+alias rTemp r1            # Temporary calculations
+
+# === STATE CONSTANTS ===
+define STATE_IDLE 0
+define STATE_PHASE_1 1
+define STATE_PHASE_2 2
+define STATE_COMPLETE 3
+
+# === THRESHOLDS ===
+define TRIGGER_VALUE 50   # Value to trigger start
+define PHASE_1_TARGET 100 # Target for phase 1
+define PHASE_2_TARGET 50  # Target for phase 2
+
+# === INITIALIZATION ===
+move rState STATE_IDLE
+
+# === MAIN LOOP ===
+main:
+# Update display with current state
+s display Setting rState
+
+# State dispatcher
+beq rState STATE_IDLE stateIdle
+beq rState STATE_PHASE_1 statePhase1
+beq rState STATE_PHASE_2 statePhase2
+beq rState STATE_COMPLETE stateComplete
+j endTick                 # Fallback
+
+# --- STATE: IDLE ---
+stateIdle:
+l rValue sensor Setting
+sgt rTemp rValue TRIGGER_VALUE
+beqz rTemp endTick        # Stay idle if not triggered
+
+# Transition to Phase 1
+s actuator1 On 1
+move rState STATE_PHASE_1
+j endTick
+
+# --- STATE: PHASE 1 ---
+statePhase1:
+l rValue sensor Setting
+sge rTemp rValue PHASE_1_TARGET
+beqz rTemp endTick        # Stay in phase 1 if not reached
+
+# Transition to Phase 2
+s actuator1 On 0
+s actuator2 On 1
+move rState STATE_PHASE_2
+j endTick
+
+# --- STATE: PHASE 2 ---
+statePhase2:
+l rValue sensor Setting
+sle rTemp rValue PHASE_2_TARGET
+beqz rTemp endTick        # Stay in phase 2 if not reached
+
+# Transition to Complete
+s actuator2 On 0
+move rState STATE_COMPLETE
+j endTick
+
+# --- STATE: COMPLETE ---
+stateComplete:
+# Optional: delay before returning to idle
+# sleep 1
+move rState STATE_IDLE
+j endTick
+
+# === END TICK ===
+endTick:
+yield
+j main

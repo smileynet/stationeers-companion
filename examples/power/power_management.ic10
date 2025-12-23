@@ -1,0 +1,65 @@
+# ==================================================
+# Power_Management
+# ==================================================
+# Source: https://github.com/drclaw1188/stationeers_ic10/blob/main/power/Power_Management.ic10
+# Repository: drclaw1188/stationeers_ic10
+# Category: power
+#
+# Devices:
+#   d0 = DaylightSensor
+#   d1 = SolarVertical
+#   d2 = SolarHorizonal
+#   d3 = LEDPercent
+#   d4 = LEDConsumed
+#   d5 = LEDProduced
+#
+# ==================================================
+alias DaylightSensor d0
+alias SolarVertical d1
+alias SolarHorizonal d2
+alias LEDPercent d3
+alias LEDConsumed d4
+alias LEDProduced d5
+
+alias PercentColor r10
+
+define SOLARPANEL -2045627372
+define BATTERY -1388288459
+
+s LEDPercent Mode 1
+s LEDConsumed Mode 2
+s LEDProduced Mode 2
+
+start:
+yield
+
+l r0 DaylightSensor Horizontal
+s SolarHorizonal Setting r0
+
+l r0 DaylightSensor Vertical
+sub r0 90 r0
+s SolarVertical Setting r0
+
+move PercentColor 4 # Red
+lb r0 BATTERY Mode Average
+s db Setting r0
+sgt r1 r0 2
+select PercentColor r1 3 PercentColor # Orange
+sgt r1 r0 3
+select PercentColor r1 5 PercentColor # Yellow
+sgt r1 r0 4
+select PercentColor r1 2 PercentColor # Green
+sgt r1 r0 5
+select PercentColor r1 0 PercentColor # Blue
+s LEDPercent Color PercentColor
+
+lb r0 BATTERY Ratio Average
+s LEDPercent Setting r0
+
+lb r0 BATTERY PowerActual Average
+s LEDConsumed Setting r0
+
+lb r0 BATTERY PowerPotential Average
+s LEDProduced Setting r0
+
+j start

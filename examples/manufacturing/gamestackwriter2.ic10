@@ -1,0 +1,14 @@
+# ==================================================
+# GameStackWriter2
+# ==================================================
+# Source: https://github.com/drclaw1188/stationeers_ic10/blob/main/game/GameStackWriter2.ic10
+# Repository: drclaw1188/stationeers_ic10
+# Category: atmosphere
+#
+# ==================================================
+move sp 0
+push 226410516 # Gold Ingot
+push -1516581844 # Uranium Ore
+push -1185552595 # Canned Rice
+push -998592080 # Tomato
+push 258339687 # Corn

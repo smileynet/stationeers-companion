@@ -1,0 +1,93 @@
+# ==================================================
+# pressure-pump
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/pressure-pump.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Category: atmosphere
+#
+# Devices:
+#   d0 = SensorSrc
+#   d1 = Pump
+#
+# ==================================================
+﻿# Fill a connected tank to a soft-limit
+
+alias SensorSrc d0
+alias Pump d1
+
+define pumpVolume 5
+define tankPumpVolume 100
+# in kpa
+define DesiredGasCanisterPressure 7000
+define DesiredGasCanisterSmartPressure 12000
+define DesiredPipePressure 35000
+
+# insertable tanks
+define StructureGasTankStorage 1632165346
+define ItemGasCanisterSmartHash -668314371
+
+j loop
+deviceSetupError:
+s db error 1
+loop:
+# validate connections
+bdns SensorSrc deviceSetupError
+bdns Pump deviceSetupError
+
+
+# detect the structure type
+l r0 SensorSrc PrefabHash
+bne r0 StructureGasTankStorage assumeStructure
+
+# read the gas storage tank, and determine limits
+ls r0 SensorSrc 0 Occupied
+beqz r0 done
+ls r0 SensorSrc 0 OccupantHash
+
+ItemGasCanisterSmart:
+bne r0 ItemGasCanisterSmartHash unknownItem
+ls r1 SensorSrc 0 Pressure
+move r2 DesiredGasCanisterSmartPressure
+j waitCanisterEqualize
+
+# Assume a dumb canister (too many hashes)
+unknownItem:
+ls r1 SensorSrc 0 Pressure
+move r2 DesiredGasCanisterPressure
+
+waitCanisterEqualize:
+move r3 pumpVolume
+s db Setting r1
+s Pump On 0
+sleep 1
+j pressureCheck
+
+assumeStructure:
+l r1 SensorSrc Pressure
+move r2 DesiredPipePressure
+move r3 tankPumpVolume
+
+pressureCheck:
+l r4 Pump On
+bltz r4 skipBias
+mul r2 r2 1000
+sub r2 r2 500
+skipBias:
+blt r1 r2 addGas
+s Pump On 0
+j done
+addGas:
+s Pump Setting r3
+s Pump On 1
+j done
+removeGas:
+
+
+errorLabel:
+s Pump On 0
+s db error 1
+done:
+s db Setting r1
+yield
+j loop
+

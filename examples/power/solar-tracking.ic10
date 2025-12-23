@@ -1,0 +1,113 @@
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/power/solar-tracking.ic10
+# Repository: Xon/stationeers-ic-scripts
+#
+# This code assumes the following:
+# Daylight Sensor data-port points north
+# Solar Panel data-port points west
+# optional multi-battery support
+
+alias sensor d0
+alias transformer d2
+
+alias sunsetGracePeriod r15
+
+define basic_1_panel -2045627372
+define basic_2_panel -539224550
+define heavy_1_panel -934345724
+define heavy_2_panel -1545574413
+
+
+#define BatteryHash -400115994
+define BatteryHash -1388288459
+#define directions of sensor and panel power ports
+define sensor_data_angle 0
+define panel_power_angle 90
+
+define sunriseVertical 32
+define sunriseHorizontal 270
+define sunsetGraceTime 60
+define minChargeLevel 1
+define maxChargeLevel 3
+
+alias corr_angle r14
+
+#calculate horizontal correction
+sub corr_angle sensor_data_angle panel_power_angle
+sub corr_angle corr_angle 90
+
+move sunsetGracePeriod 0
+loop:
+jal checkBatteryForExport
+
+l r0 sensor Activate
+beqz r0 sundown
+
+move sunsetGracePeriod 1
+
+l r0 sensor Vertical
+l r1 sensor Horizontal
+sub r0 90 r0
+add r1 r1 corr_angle
+jal programSolarPanels
+
+yield
+j loop
+
+sundown:
+beqz sunsetGracePeriod waitForDawn
+push sunsetGraceTime
+jal sleepWithBatteryCheck
+move sunsetGracePeriod 0
+waitForDawn:
+move r0 sunriseVertical
+move r1 sunriseHorizontal
+jal programSolarPanels
+
+push 2
+jal sleepWithBatteryCheck
+j loop
+
+checkBatteryForExport:
+push ra
+push r0
+lb r0 BatteryHash Mode 0
+bltal r0 minChargeLevel disablePowerExport
+bgtal r0 maxChargeLevel enablePowerExport
+checkBatteryForExport_prolog:
+pop r0
+pop ra
+j ra
+
+disablePowerExport:
+s transformer On 0
+j ra
+
+enablePowerExport:
+s transformer On 1
+j ra
+
+sleepWithBatteryCheck:
+pop r0
+push ra
+jal checkBatteryForExport
+bltz r0 sleepWithBatteryCheck_prolog
+# yield is ~0.5 seconds
+sleepLoop:
+sub r0 r0 0.5
+yield
+jal checkBatteryForExport
+bgtz r0 sleepLoop
+sleepWithBatteryCheck_prolog:
+pop ra
+j ra
+
+programSolarPanels:
+sb basic_1_panel Vertical r0
+sb basic_2_panel Vertical r0
+sb heavy_1_panel Vertical r0
+sb heavy_2_panel Vertical r0
+sb basic_1_panel Horizontal r1
+sb basic_2_panel Horizontal r1
+sb heavy_1_panel Horizontal r1
+sb heavy_2_panel Horizontal r1
+j ra
