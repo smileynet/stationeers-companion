@@ -29,7 +29,7 @@ push 100               # Push literal value
 ---
 
 ### pop
-Removes and retrieves the top value from the stack.
+Removes and retrieves the top value from stack.
 
 **Syntax**: `pop r?`
 
@@ -42,6 +42,48 @@ pop r0                 # Get top value into r0
 ```
 
 **Note**: Stack is LIFO (Last In, First Out).
+
+---
+
+### clr
+Clears stack memory for a device. Resets all stack values to zero.
+
+**Syntax**: `clr device`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| device | db/d0-d5 | Target device to clear |
+
+```ic10
+clr db                  # Clear internal stack (all values = 0)
+clr d0                  # Clear d0's external stack
+```
+
+**Use Cases**:
+- Reset data structures before starting fresh
+- Clear accumulated data
+- Initialize stack to known state
+
+---
+
+### clrd
+Clears stack memory for a device specified by device ID (prefab hash).
+
+**Syntax**: `clrd id`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| id | reg/num | Device prefab hash or device ID |
+
+```ic10
+define MEMORY_HASH 1234567890
+clrd MEMORY_HASH        # Clear memory device with this hash
+```
+
+**Use Cases**:
+- Clear memory on devices identified by hash
+- Batch memory reset
+- When device port unknown but hash is known
 
 ---
 

@@ -218,6 +218,97 @@ Branch if device set/not set, and link.
 
 ---
 
+### bdnvl (Branch if Device Not Valid for Load)
+Branch if a device cannot be read from (logic type invalid or device unavailable).
+
+**Syntax**: `bdnvl device logicType label`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| device | d0-d5 | Device to check |
+| logicType | name | Logic type to verify |
+| label | name | Label to jump if not valid |
+
+```ic10
+alias tank d0
+bdnvl tank Quantity noItem    # Skip if Quantity not readable
+l r0 tank Quantity            # Safe to read now
+noItem:
+move r0 0                  # Default value
+```
+
+**Use Cases**:
+- Checking if device supports a specific logic type
+- Graceful degradation when device not available
+- Preventing read errors
+
+---
+
+### bdnvs (Branch if Device Not Valid for Store)
+Branch if a device cannot be written to (logic type invalid or device unavailable).
+
+**Syntax**: `bdnvs device logicType label`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| device | d0-d5 | Device to check |
+| logicType | name | Logic type to verify |
+| label | name | Label to jump if not valid |
+
+```ic10
+bdnvs vent Setting skipVent   # Skip if Setting not writable
+s vent Setting 50              # Safe to write now
+skipVent:
+```
+
+**Use Cases**:
+- Checking if write operation is valid before executing
+- Preventing write errors
+- Handling device incompatibility
+
+---
+
+### bnan (Branch if NaN)
+Branch if value is NaN (Not a Number).
+
+**Syntax**: `bnan value label`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| value | reg/num | Value to check |
+| label | name | Label to jump if NaN |
+
+```ic10
+l r0 calculationResult
+bnan r0 handleNaN        # Handle invalid result
+# ... continue with valid value ...
+handleNaN:
+move r0 0                  # Reset to default
+```
+
+**Use Cases**:
+- Division by zero protection
+- Invalid calculation results
+- Sensor reading errors
+
+---
+
+### brnan (Branch if NaN - Relative)
+Relative branch if value is NaN.
+
+**Syntax**: `brnan value offset`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| value | reg/num | Value to check |
+| offset | reg/num | Lines to jump (can be negative) |
+
+```ic10
+brnan r0 -3               # Skip 3 lines if NaN
+```
+
+---
+
 ## Approximate Branches
 
 Branch based on approximate equality (for floating-point tolerance).

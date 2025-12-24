@@ -211,15 +211,128 @@ yield
 
 ### Any/All Check
 ```ic10
-# ANY problem = alarm
-or r0 r1 r2            # Combine first two
-or r0 r0 r3            # Add third
-s alarm On r0          # Alarm if any issue
-
 # ALL conditions = proceed
 and r0 r1 r2
 and r0 r0 r3
 s proceed On r0        # Only if all conditions met
+```
+
+---
+
+## Bit Field Operations
+
+### ext (Extract Bit Field)
+Extracts a bit field from a value at a specified position with a specified length.
+
+**Syntax**: `ext destination source position length`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| destination | register | Result register |
+| source | reg/num | Value to extract from |
+| position | reg/num | Bit position to start extraction (0-31) |
+| length | reg/num | Number of bits to extract |
+
+```ic10
+# Extract color from RGB packed value
+# Packed format: 0xRRGGBB where each channel is 8 bits
+define RED_OFFSET 16
+define RED_BITS 8
+
+ext rColor rgbValue RED_OFFSET RED_BITS  # Extract red channel
+```
+
+**Use Cases**:
+- Unpacking multi-byte values
+- Extracting bit flags
+- Reading packed device data
+
+**Equivalent**: `destination = (source >> position) & ((1 << length) - 1)`
+
+---
+
+### ins (Insert Bit Field)
+Inserts a bit field into a value at a specified position with a specified length.
+
+**Syntax**: `ins destination position source length`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| destination | register | Target register to modify |
+| position | reg/num | Bit position to start insertion (0-31) |
+| source | reg/num | Value to insert |
+| length | reg/num | Number of bits to insert |
+
+```ic10
+# Pack RGB values into single integer
+move rPacked 0  # Clear all bits
+
+# Insert red (8 bits at position 16)
+ins rPacked 16 rRed 8
+
+# Insert green (8 bits at position 8)
+ins rPacked 8 rGreen 8
+
+# Insert blue (8 bits at position 0)
+ins rPacked 0 rBlue 8
+```
+
+**Use Cases**:
+- Packing multiple values into one register
+- Setting bit flags
+- Constructing device-specific data formats
+
+**Equivalent**: `destination = (destination & ~(((1 << length) - 1) << position)) | ((source & ((1 << length) - 1)) << position)`
+
+---
+
+## Bit Field Examples
+
+### Device Status Flags
+
+Many devices use packed status flags:
+
+```ic10
+# Extract specific flag bits
+define FLAG_POWER 0
+define FLAG_ERROR 1
+define FLAG_BUSY 2
+define FLAG_READY 3
+
+# Extract power flag (1 bit at position 0)
+ext r0 deviceStatus FLAG_POWER 1
+
+# Extract ready flag (1 bit at position 3)
+ext r1 deviceStatus FLAG_READY 1
+
+or r2 r0 r1            # Combine flags
+```
+
+### Packed Color Values
+
+```ic10
+# Pack 3 RGB values into one
+# Format: 0xRRGGBB
+
+move rPacked 0
+ins rPacked 16 rRed 8     # Insert red at bits 16-23
+ins rPacked 8 rGreen 8     # Insert green at bits 8-15
+ins rPacked 0 rBlue 8      # Insert blue at bits 0-7
+```
+
+### Signal ID Decoding
+
+```ic10
+# Signal ID contains: Type (4 bits) + Index (12 bits)
+define TYPE_OFFSET 12
+define TYPE_BITS 4
+define INDEX_BITS 12
+
+# Extract signal type
+ext r0 signalID TYPE_OFFSET TYPE_BITS  # Type is in bits 12-15
+
+# Extract signal index (masking first)
+ext r1 signalID 0 INDEX_BITS  # Index is in bits 0-11
 ```
 
 ---

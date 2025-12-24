@@ -149,6 +149,37 @@ Writes a reagent value to a device.
 
 ---
 
+### rmap (Reagent Map)
+Maps a reagent hash to its corresponding prefab hash. Used for looking up device prefabs from reagent types.
+
+**Syntax**: `rmap destination device reagentHash`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| destination | register | Result register (receives prefab hash) |
+| device | d0-d5 | Device to query |
+| reagentHash | reg/num | Hash of the reagent type to look up |
+
+```ic10
+# Map water reagent to its prefab hash
+define WATER_REAGENT_HASH 1234567890
+
+alias reagentStorage d0
+move rWaterHash WATER_REAGENT_HASH
+
+# Get prefab hash for water
+rmap rPrefabHash reagentStorage rWaterHash
+
+# rPrefabHash now contains the device prefab hash for water
+```
+
+**Use Cases**:
+- Finding device prefabs for reagent-based filtering
+- Looking up stacker/pipe types from reagent types
+- Converting between reagent and device identification systems
+
+---
+
 ## Direct Register Operations
 
 ### ld (Load Device)
