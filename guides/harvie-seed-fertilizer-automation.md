@@ -481,14 +481,17 @@ j ra
 Sorters can be configured via IC10 or manually:
 
 **For Seed Return**:
-- Set sorter to Mode 0 (filter out)
-- Configure hash filter for each seed type
-- Seeds pass through, food diverts
+- Set sorter to Mode 2 (Logic mode)
+- Set `Output` to 1 (side output) for seed types, 0 (straight) for pass-through
+- Read `OccupantHash` from sorter slots to detect item types
+- Activate connected stackers when matching items detected
 
 **For Food Collection**:
-- Set sorter to Mode 1 (filter in)
-- Configure hash filter for each crop type
-- Food diverts to storage, seeds pass through
+- Set sorter to Mode 2 (Logic mode)
+- Set `Output` based on item hash detection
+- Use slot operations to read item hashes and control routing
+
+**Note**: Mode 0 (Split) alternates outputs automatically. Mode 1 (Filter) requires Motherboard with whitelist configured via computer interface and is NOT IC10-controllable. Mode 2 (Logic) allows full IC10 control via the `Output` parameter.
 
 ---
 

@@ -1,0 +1,57 @@
+# ==================================================
+# launch-countdown
+# ==================================================
+# Category: patterns
+#
+# A reusable launch countdown timer with display integration.
+# Extracted from Zappes/Stationeers rocket controller.
+#
+# Devices:
+#   d0 = Display (countdown display)
+#
+# Usage:
+#   Set countdownDuration to desired seconds
+#   Jump to countdownStart to begin
+#
+# ==================================================
+alias Display d0
+
+alias countdown r0
+alias countdownDuration r1
+
+# Configuration
+define countdownStart 10
+
+# === MAIN ===
+main:
+    move countdown countdownDuration
+
+countdownLoop:
+    # Display current countdown value
+    s Display Setting countdown
+
+    # Wait 1 second
+    sleep 1
+
+    # Decrement countdown
+    sub countdown countdown 1
+
+    # Check if countdown complete
+    bltz countdown countdownDone
+    j countdownLoop
+
+countdownDone:
+    # Countdown complete - turn off display
+    s Display On 0
+
+    # Continue with launch sequence
+    j launchSequence
+
+# === LAUNCH SEQUENCE ===
+launchSequence:
+    # Add your launch code here
+    # Example:
+    # s Rocket Mode modeLaunching
+
+    # End of script or jump to main loop
+    j main

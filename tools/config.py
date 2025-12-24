@@ -313,6 +313,18 @@ CATEGORY_KEYWORDS = {
         "latch",
         "debounce",
     ],
+    "rocketry": [
+        "rocket",
+        "orbital",
+        "atmospheric",
+        "flight",
+        "thruster",
+        "engine",
+        "launch",
+        "space",
+        "trading",
+        "shuttle",
+    ],
 }
 
 # Example output directory

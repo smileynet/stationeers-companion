@@ -1,0 +1,29 @@
+# ============================================
+# Ore Scanner Display
+# ============================================
+# Description: Display ore scanner data on screen
+# Difficulty: Beginner
+# Lines: 28/128 (22%)
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = Ore Scanner - Hand scanner or mounted
+#   d1 = Display     - Large LCD screen
+#
+# Instructions:
+#   1. Connect ore scanner to d0
+#   2. Connect display to d1
+#   3. Load script and run
+#
+# Note: Ore scanner must be actively scanning
+# ============================================
+
+alias scanner d0
+alias display d1
+alias rData r0
+
+main:
+l rData scanner Setting  # Read ore data
+s display Setting rData  # Display on screen
+yield
+j main

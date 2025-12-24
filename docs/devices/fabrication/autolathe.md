@@ -12,41 +12,32 @@ prefab_hash: -1753893214
 
 ### Readable
 
-| Logic Type | Description |
-|------------|-------------|
-| On | Boolean |
-| 1 | Turns the device on. Also toggles the switch accordingly. |
-| 1 | Starts purging of stored materials in the structure. Also pulls the lever accordingly. Without powering the structure it won't purge anything. |
-| Activate | Boolean |
-| 1 | Writing a 1 to the device starts the construction of the chosen item. If there are not enough materials inside the structure it will starts to fabricate the item anyway, but won't actually produce the item and won't consume any stored resources. |
-| Lock | Boolean |
-| 1 | Completely blocks any manual interaction with the structure. This doesn't inculdes interaction by logic. |
-| ClearMemory | Boolean |
-| On | Boolean |
-| 1 | TheAutolatheis powered. This is the same as the physical red powerswitch located on the structure. |
-| Open | Boolean |
-| 1 | Output of theAutolatheis opened. This is the same as the physical lever located on the structure. |
-| Activate | Boolean |
-| 1 | The structure is currently producing something. |
-| Power | Boolean |
-| 1 | Can be read to return if the device is correctly powered or not, set via the power system, return 1 if powered and O if not. |
-| Error | Boolean |
-| 1 | 1 if device is in error state, otherwise 0. |
-| Reagents | Integer |
-| RequiredPower | Integer |
-| CompletionRatio | Integer |
-| ExportCount | Integer |
-| ImportCount | Integer |
-| PrefabHash | Integer |
-| Referenceld | Integer |
+| Logic Type | Description | Unit |
+|------------|-------------|-------|
+| On | Device is powered on | Boolean |
+| Open | Output hatch is open | Boolean |
+| Activate | Device is currently producing something | Boolean |
+| Power | Device is correctly powered | Boolean (1=powered, 0=not) |
+| Error | Device is in error state | Boolean (1=error, 0=ok) |
+| Lock | Device is locked (blocks manual interaction) | Boolean |
+| ClearMemory | Clears counter memory | Boolean |
+| Reagents | Number of stored reagents | Integer |
+| RequiredPower | Power required for current operation | Watts |
+| CompletionRatio | Fabrication completion progress | Float (0.0-1.0) |
+| ExportCount | Number of items exported | Integer |
+| ImportCount | Number of items imported | Integer |
+| PrefabHash | Prefab hash of current recipe | Integer |
+| ReferenceId | Reference ID for tracking | Integer |
 
 ### Writable
 
-| Logic Type | Description |
-|------------|-------------|
-| Open | Boolean |
-| 1 | Clears the counter memory. Will set itself back to 0 when actioned. |
-| RecipeHash | Integer |
+| Logic Type | Description | Unit |
+|------------|-------------|-------|
+| Open | Opens/closes output hatch | Boolean (1=open, 0=closed) |
+| ClearMemory | Clears counter memory (sets to 0) | Boolean |
+| RecipeHash | Set recipe to fabricate via prefab hash | Integer |
+| Lock | Lock/unlock device (blocks manual interaction) | Boolean (1=locked, 0=unlocked) |
+| Power | Turn device on/off | Boolean (1=on, 0=off) |
 | Lock | Boolean |
 | 1 | 1 if device is locked, otherwise 0, can be set in most devices and prevents the user from access the values. |
 | Power | Boolean |

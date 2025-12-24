@@ -1,0 +1,249 @@
+# ==================================================
+# launch-orchestrator
+# ==================================================
+# Category: rockets
+#
+# WARNING: The Automated Rocket Automation module is marked as
+# deprecated on the Stationeers Wiki. Verify logic types in-game.
+#
+# Orchestrates complete launch sequence from pre-launch checks
+# to liftoff. Coordinates fuel management, module status,
+# countdown, and safety interlocks.
+#
+# IMPORTANT: Mode is READ-ONLY. Use Activate to trigger mode changes:
+#   1 = Launch to Space
+#
+# Devices:
+#   d0 = Automation (Rocket Controller)
+#   d1 = FuelController (Fuel management IC)
+#   d2 = ModuleOre (Ore mining module)
+#   d3 = ModuleIce (Ice harvesting module)
+#   d4 = ModuleSilo (Cargo silo module)
+#   d5 = LaunchDisplay (Countdown display)
+#   d6 = StatusLED (Launch status indicator)
+#   d7 = AbortButton (Emergency abort)
+#
+# ==================================================
+alias Automation d0
+alias FuelController d1
+alias ModuleOre d2
+alias ModuleIce d3
+alias ModuleSilo d4
+alias LaunchDisplay d5
+alias StatusLED d6
+alias AbortButton d7
+
+alias launchState r8
+alias abortFlag r9
+alias countdown r10
+alias fuelReady r11
+abort r12
+
+# === LAUNCH STATES ===
+define STATE_IDLE 0
+define STATE_PREFLIGHT 1
+define STATE_COUNTDOWN 2
+define STATE_LAUNCH 3
+define STATE_ABORTED 4
+
+# === CONFIGURATION ===
+define COUNTDOWN_DURATION 10  # seconds
+define CHECK_INTERVAL 5  # ticks between preflight checks
+
+# Colors
+define COLOR_OFF 0
+define COLOR_GREEN 2
+define COLOR_YELLOW 3
+define COLOR_RED 4
+
+# === INITIALIZATION ===
+init:
+    move launchState STATE_IDLE
+    move abortFlag 0
+    move countdown COUNTDOWN_DURATION
+
+    # Initial system status
+    s StatusLED Color COLOR_OFF
+    s StatusLED On 0
+    s LaunchDisplay On 0
+    s LaunchDisplay Setting 0
+
+# === MAIN ===
+main:
+    # Check for abort signal
+    l abortFlag AbortButton On
+    bnez abortFlag abortSequence
+
+    # Dispatch based on launch state
+    beq launchState STATE_IDLE processIdle
+    beq launchState STATE_PREFLIGHT processPreflight
+    beq launchState STATE_COUNTDOWN processCountdown
+    beq launchState STATE_LAUNCH processLaunch
+
+    j main
+
+# === STATE HANDLERS ===
+
+processIdle:
+    # === IDLE STATE ===
+    # Waiting for launch command
+    l r0 Automation Mode
+
+    # Check if launch button pressed (external signal)
+    l r0 LaunchButton Setting
+    bnez r0 beginPreflight
+
+    # Check if automatic launch requested
+    l r0 Automation AutoLaunch
+    beqz r0 main
+
+beginPreflight:
+    # Start preflight checks
+    move launchState STATE_PREFLIGHT
+    s StatusLED On 1
+    s StatusLED Color COLOR_YELLOW
+    j main
+
+processPreflight:
+    # === PREFLIGHT STATE ===
+    # Run preflight checks every CHECK_INTERVAL ticks
+
+    # Check 1: Rocket on pad (mode == 0)
+    l r0 Automation Mode
+    bnez r0 preflightFailed  # Not on pad
+
+    # Check 2: Fuel ready
+    l fuelReady FuelController Setting
+    beqz fuelReady preflightFailed  # Not ready
+
+    # Check 3: Module status (should be off)
+    l r0 ModuleOre Activate
+    bnez r0 preflightFailed
+    l r0 ModuleIce Activate
+    bnez r0 preflightFailed
+
+    # Check 4: Silo configured
+    l r0 ModuleSilo Open
+    bnez r0 preflightFailed  # Should be closed
+
+    # All checks passed - proceed to countdown
+    move launchState STATE_COUNTDOWN
+    s StatusLED Color COLOR_GREEN
+    move countdown COUNTDOWN_DURATION
+    s LaunchDisplay On 1
+    j main
+
+preflightFailed:
+    # Preflight check failed
+    s LaunchDisplay On 0
+    s StatusLED Color COLOR_RED
+    # Flash error code
+    move r0 99
+    s LaunchDisplay Setting r0
+    sleep 1
+    move launchState STATE_IDLE
+    s StatusLED On 0
+    s StatusLED Color COLOR_OFF
+    j main
+
+processCountdown:
+    # === COUNTDOWN STATE ===
+    # Display countdown
+    s LaunchDisplay Setting countdown
+
+    # Wait 1 second
+    sleep 1
+
+    # Decrement countdown
+    sub countdown countdown 1
+
+    # Check if countdown complete
+    bltz countdown countdownComplete
+
+    # Continue countdown
+    j main
+
+countdownComplete:
+    # Countdown complete - initiate launch
+    move launchState STATE_LAUNCH
+    s LaunchDisplay On 0
+    s StatusLED Color COLOR_YELLOW
+    jal executeLaunch
+    j main
+
+processLaunch:
+    # === LAUNCH STATE ===
+    # Launch initiated - wait for rocket to leave pad
+    l r0 Automation Mode
+
+    # Check if rocket left pad (mode != 0)
+    beqz r0 main
+
+    # Rocket launched - return to idle
+    move launchState STATE_IDLE
+    s StatusLED Color COLOR_GREEN
+    sleep 1
+    s StatusLED On 0
+    j main
+
+# === SEQUENCES ===
+
+executeLaunch:
+    # Execute launch sequence
+
+    # 1. Close silo
+    s ModuleSilo Open 0
+
+    # 2. Clear silo memory
+    s ModuleSilo ClearMemory 1
+
+    # 3. Trigger rocket launch (use Activate, not Mode)
+    s Automation Activate 1
+
+    # 4. Signal fuel controller launch complete
+    s FuelController Mode 1
+
+    # 5. Update status
+    s LaunchDisplay Setting 0
+
+    j ra
+
+abortSequence:
+    # === ABORT SEQUENCE ===
+    move launchState STATE_ABORTED
+
+    # Flash red LED
+    s StatusLED Color COLOR_RED
+    s StatusLED On 1
+    sleep 1
+    s StatusLED On 0
+    sleep 1
+    s StatusLED On 1
+
+    # Reset launch display
+    s LaunchDisplay On 0
+    move r0 0
+    s LaunchDisplay Setting r0
+
+    # Stop fueling
+    s FuelController Mode 0
+
+    # Ensure modules are off
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+
+    # Reset state after delay
+    sleep 2
+    move launchState STATE_IDLE
+    move abortFlag 0
+    s StatusLED On 0
+    s StatusLED Color COLOR_OFF
+
+    j main
+
+# === STATUS DISPLAY ===
+# LED indicates launch state:
+#   Off = Idle
+#   Yellow = Preflight / Launching
+#   Green = Ready / Success
+#   Red = Error / Aborted

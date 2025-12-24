@@ -1,0 +1,64 @@
+# ============================================
+# Conveyor Belt Controller
+# ============================================
+# Description: Transport system with flow control
+# Difficulty: Intermediate
+# Lines: 63/128 (49%)
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = Conveyor Belt - Transport belt
+#   d1 = Item Detector (optional) - Detects items
+#   d2 = Stacker - Destination storage
+#
+# Features:
+#   - Activates conveyor when items detected
+#   - Stops when destination full
+#   - Flow rate control
+#   - Prevents overflow/bottlenecks
+#
+# Setup:
+#   Place detector on belt before stacker
+#   Items pass detector → enter stacker
+# ============================================
+
+alias conveyor d0
+alias detector d1
+alias stacker d2
+
+alias rItemCount r0
+alias rStackLevel r1
+alias rShouldRun r2
+
+define STACK_MAX 90  # Stop when 90% full
+
+main:
+# Read item detector count (if present)
+bdns detector checkStack
+l rItemCount detector Setting  # Items detected
+bgt rItemCount 0 itemsPresent
+j stopConveyor
+
+itemsPresent:
+# Items on belt, check if destination has space
+l rStackLevel stacker Setting
+blt rStackLevel STACK_MAX startConveyor
+j stopConveyor
+
+checkStack:
+# No detector, just check stack level
+l rStackLevel stacker Setting
+blt rStackLevel STACK_MAX startConveyor
+j stopConveyor
+
+startConveyor:
+s conveyor On 1
+j endTick
+
+stopConveyor:
+s conveyor On 0
+j endTick
+
+endTick:
+yield
+j main

@@ -1,0 +1,58 @@
+# ============================================
+# Single Drill Controller
+# ============================================
+# Description: Auto-activate mining drill with power management
+# Difficulty: Beginner
+# Lines: 57/128 (45%)
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = Mining Drill     - Drill to control
+#   d1 = Battery          - Power source
+#   d2 = Display (opt)    - Status display
+#
+# Features:
+#   - Hysteresis power control (prevents oscillation)
+#   - Turns ON when battery > 40%
+#   - Turns OFF when battery < 30%
+#   - Safety buffer to preserve power
+# ============================================
+
+alias drill d0
+alias battery d1
+alias display d2
+alias rCharge r0
+alias rState r1
+alias rNewState r2
+
+define POWER_HIGH 40  # Turn on above this
+define POWER_LOW 30   # Turn off below this
+
+main:
+l rCharge battery Charge  # Read battery charge
+l rState drill On          # Read drill state
+
+# Hysteresis logic
+bgt rCharge POWER_HIGH turnOn
+blt rCharge POWER_LOW turnOff
+j updateDisplay  # Within deadband, no change
+
+turnOn:
+move rNewState 1
+j applyState
+
+turnOff:
+move rNewState 0
+j applyState
+
+applyState:
+beq rState rNewState updateDisplay
+s drill On rNewState
+
+updateDisplay:
+bdns display endTick
+s display Setting rCharge  # Show charge %
+
+endTick:
+yield
+j main

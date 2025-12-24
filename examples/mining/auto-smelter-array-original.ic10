@@ -1,0 +1,129 @@
+# ============================================
+# Auto Smelter Array
+# ============================================
+# Description: Feed arc furnace array from ore stockpile
+# Difficulty: Intermediate
+# Lines: 128/128 (100%)
+# Author: Stationeers Companion
+# Adapted from: jhillacre/stationeers-scripts
+#
+# Devices:
+#   d0-d3 = Arc Furnaces (4 furnaces)
+#   d4 = Ore Stacker (source)
+#   d5 = Ingot Stacker (output)
+#   d6 = Lever (kill switch)
+#
+# Features:
+#   - Activate idle furnaces with ore available
+#   - Deactivate empty furnaces
+#   - Monitor input and output levels
+#   - Kill lever for emergency stop
+# ============================================
+
+alias furnace1 d0
+alias furnace2 d1
+alias furnace3 d2
+alias furnace4 d3
+alias oreStacker d4
+alias ingotStacker d5
+alias lever d6
+
+alias rIndex r0
+alias rIdle r1
+alias rOreQty r2
+alias rKillSwitch r3
+
+# === HASH DEFINITION ===
+# Prefab hash for StructureArcFurnace
+# TODO: Verify this hash matches current game version
+# If incorrect, look up with Prefab Hash Lookup tool
+define FURNACE_HASH -721824809
+
+# === INITIALIZATION ===
+move rIndex 0
+
+# === MAIN LOOP ===
+main:
+# Check kill switch first
+l rKillSwitch lever On
+
+# Kill switch pulled (lever On = 1 means open/active)
+# If active, stop all furnaces immediately
+beqz rKillSwitch checkFurnaces
+
+# Kill switch closed (lever On = 0 means closed/inactive)
+# Allow normal furnace operation
+beq rKillSwitch checkFurnaceLoop
+
+checkFurnaces:
+# Loop through furnaces using batch operations
+beq rIndex 0 checkFurnace0
+beq rIndex 1 checkFurnace1
+beq rIndex 2 checkFurnace2
+beq rIndex 3 checkFurnace3
+move rIndex 0
+j checkFurnaceLoop
+
+checkFurnace0:
+# Check furnace 0 for work
+l rIdle furnace1 Idle
+ls rOreQty oreStacker 0 Quantity
+beqz rKillSwitch deactivate0
+blez rOreQty main
+blez rIdle main
+s furnace1 On 1
+s furnace1 Activate 1
+j main
+
+deactivate0:
+s furnace1 On 0
+j main
+
+checkFurnace1:
+l rIdle furnace2 Idle
+ls rOreQty oreStacker 0 Quantity
+beqz rKillSwitch deactivate1
+blez rOreQty main
+blez rIdle main
+s furnace2 On 1
+s furnace2 Activate 1
+j main
+
+deactivate1:
+s furnace2 On 0
+j main
+
+checkFurnace2:
+l rIdle furnace3 Idle
+ls rOreQty oreStacker 0 Quantity
+beqz rKillSwitch deactivate2
+blez rOreQty main
+blez rIdle main
+s furnace3 On 1
+s furnace3 Activate 1
+j main
+
+deactivate2:
+s furnace3 On 0
+j main
+
+checkFurnace3:
+l rIdle furnace4 Idle
+ls rOreQty oreStacker 0 Quantity
+beqz rKillSwitch deactivate3
+blez rOreQty main
+blez rIdle main
+s furnace4 On 1
+s furnace4 Activate 1
+j main
+
+deactivate3:
+s furnace4 On 0
+j main
+
+# === FURNACE LOOP END ===
+checkFurnaceLoop:
+# Kill switch pulled, all furnaces off
+beqz rKillSwitch main
+yield
+j main

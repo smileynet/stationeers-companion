@@ -1,0 +1,236 @@
+# ==================================================
+# Launch Orchestrator (Main)
+# ==================================================
+# Description: Main launch sequence orchestrator
+# Part of: Multi-chip launch orchestrator system
+# Lines: 95/128 (74%)
+# Category: rockets
+#
+# Devices:
+#   d0 = Automation (Rocket Controller)
+#   d5 = LaunchDisplay (Countdown display)
+#   d6 = StatusLED (Launch status indicator)
+#   d7 = AbortButton (Emergency abort)
+#
+# Coordination:
+#   Reads status from Fuel Manager (db Setting slot 3)
+#   Reads status from Module Manager (db Setting slots 0-2)
+#   Sends commands via batch writes and shared registers
+#
+# Shared Registers:
+#   db Setting slot 4 = Command to modules
+#   db Setting slot 5 = Command to fuel manager
+# ==================================================
+
+alias Automation d0
+alias LaunchDisplay d5
+alias StatusLED d6
+alias AbortButton d7
+
+alias launchState r8
+alias abortFlag r9
+alias countdown r10
+
+# === LAUNCH STATES ===
+define STATE_IDLE 0
+define STATE_PREFLIGHT 1
+define STATE_COUNTDOWN 2
+define STATE_LAUNCH 3
+define STATE_ABORTED 4
+
+# === CONFIGURATION ===
+define COUNTDOWN_DURATION 10  # seconds
+
+# Commands to other chips
+define CMD_NONE 0
+define CMD_PREPARE 1
+define CMD_ABORT 2
+
+# Colors
+define COLOR_OFF 0
+define COLOR_GREEN 2
+define COLOR_YELLOW 3
+define COLOR_RED 4
+
+# === INITIALIZATION ===
+init:
+    move launchState STATE_IDLE
+    move abortFlag 0
+    move countdown COUNTDOWN_DURATION
+
+    # Initial system status
+    s StatusLED Color COLOR_OFF
+    s StatusLED On 0
+    s LaunchDisplay On 0
+    s LaunchDisplay Setting 0
+
+# === MAIN ===
+main:
+    # Check for abort signal
+    l abortFlag AbortButton On
+    bnez abortFlag abortSequence
+
+    # Dispatch based on launch state
+    beq launchState STATE_IDLE processIdle
+    beq launchState STATE_PREFLIGHT processPreflight
+    beq launchState STATE_COUNTDOWN processCountdown
+    beq launchState STATE_LAUNCH processLaunch
+
+    j main
+
+# === STATE HANDLERS ===
+
+processIdle:
+    # === IDLE STATE ===
+    # Waiting for launch command
+    l r0 Automation Mode
+
+    # Check if launch requested (AutoLaunch or manual trigger)
+    l r0 Automation AutoLaunch
+    beqz r0 main
+
+    # Start preflight checks
+    move launchState STATE_PREFLIGHT
+    s StatusLED On 1
+    s StatusLED Color COLOR_YELLOW
+
+    # Tell modules to prepare
+    s db Setting CMD_PREPARE
+    j main
+
+processPreflight:
+    # === PREFLIGHT STATE ===
+    # Check status from other chips
+
+    # Check 1: Rocket on pad (mode == 0)
+    l r0 Automation Mode
+    bnez r0 preflightFailed  # Not on pad
+
+    # Check 2: Fuel ready (from Fuel Manager)
+    ls r0 db 3 Setting
+    beqz r0 preflightFailed  # Not ready
+
+    # Check 3: Module statuses (from Module Manager)
+    ls r0 db 0 Setting  # Ore module
+    bnez r0 preflightFailed  # Should be off
+    ls r0 db 1 Setting  # Ice module
+    bnez r0 preflightFailed  # Should be off
+    ls r0 db 2 Setting  # Silo
+    bnez r0 preflightFailed  # Should be closed
+
+    # All checks passed - proceed to countdown
+    move launchState STATE_COUNTDOWN
+    s StatusLED Color COLOR_GREEN
+    move countdown COUNTDOWN_DURATION
+    s LaunchDisplay On 1
+    j main
+
+preflightFailed:
+    # Preflight check failed - tell modules to abort
+    s db Setting CMD_ABORT
+
+    s LaunchDisplay On 0
+    s StatusLED Color COLOR_RED
+
+    # Flash error code
+    move r0 99
+    s LaunchDisplay Setting r0
+    sleep 1
+
+    move launchState STATE_IDLE
+    s StatusLED On 0
+    s StatusLED Color COLOR_OFF
+    s db Setting CMD_NONE
+    j main
+
+processCountdown:
+    # === COUNTDOWN STATE ===
+    # Display countdown
+    s LaunchDisplay Setting countdown
+
+    # Wait 1 second
+    sleep 1
+
+    # Decrement countdown
+    sub countdown countdown 1
+
+    # Check if countdown complete
+    bltz countdown countdownComplete
+
+    # Continue countdown
+    j main
+
+countdownComplete:
+    # Countdown complete - initiate launch
+    move launchState STATE_LAUNCH
+    s LaunchDisplay On 0
+    s StatusLED Color COLOR_YELLOW
+
+    # Execute launch
+    jal executeLaunch
+
+    j main
+
+processLaunch:
+    # === LAUNCH STATE ===
+    # Launch initiated - wait for rocket to leave pad
+    l r0 Automation Mode
+
+    # Check if rocket left pad (mode != 0)
+    beqz r0 main
+
+    # Rocket launched - return to idle
+    move launchState STATE_IDLE
+    s StatusLED Color COLOR_GREEN
+    sleep 1
+    s StatusLED On 0
+
+    # Reset commands
+    s db Setting CMD_NONE
+    j main
+
+# === SEQUENCES ===
+
+executeLaunch:
+    # Execute launch sequence
+
+    # 1. Trigger rocket launch (use Activate, not Mode)
+    s Automation Activate 1
+
+    # 2. Tell fuel manager launch complete
+    s db Setting 1
+
+    # 3. Update display
+    s LaunchDisplay Setting 0
+
+    j ra
+
+abortSequence:
+    # === ABORT SEQUENCE ===
+    move launchState STATE_ABORTED
+
+    # Tell all chips to abort
+    s db Setting CMD_ABORT
+
+    # Flash red LED
+    s StatusLED Color COLOR_RED
+    s StatusLED On 1
+    sleep 1
+    s StatusLED On 0
+    sleep 1
+    s StatusLED On 1
+
+    # Reset launch display
+    s LaunchDisplay On 0
+    move r0 0
+    s LaunchDisplay Setting r0
+
+    # Reset state after delay
+    sleep 2
+    move launchState STATE_IDLE
+    move abortFlag 0
+    s StatusLED On 0
+    s StatusLED Color COLOR_OFF
+    s db Setting CMD_NONE
+
+    j main

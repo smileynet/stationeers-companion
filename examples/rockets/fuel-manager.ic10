@@ -1,0 +1,72 @@
+# ============================================
+# Fuel Manager
+# ============================================
+# Description: Manages rocket fuel monitoring and coordination
+# Part of: Multi-chip launch orchestrator system
+# Lines: 35/128 (27%)
+# Category: rockets
+#
+# Devices:
+#   d0 = FuelController (Fuel management IC)
+#   d1 = StatusDisplay (Optional debug display)
+#
+# Communication:
+#   Writes fuel ready status to shared memory
+#   Responds to commands from Launch Orchestrator
+#
+# Status Register (written to db Setting slot 3):
+#   0 = Not ready (insufficient fuel)
+#   1 = Ready for launch
+# ============================================
+
+alias FuelController d0
+alias StatusDisplay d1
+
+alias rFuelReady r0
+alias rFuelLevel r1
+alias rCommand r10
+alias rThreshold r11
+
+# Status values
+define FUEL_NOT_READY 0
+define FUEL_READY 1
+
+# Configuration
+define FUEL_THRESHOLD 50000  # Joules required for launch
+
+# === MAIN LOOP ===
+main:
+# Read fuel level
+l rFuelLevel FuelController Charge
+
+# Check if fuel sufficient
+sgt rFuelReady rFuelLevel FUEL_THRESHOLD
+
+# Write status to shared memory slot 3
+s db Setting rFuelReady
+
+# Check for commands from Orchestrator
+ls rCommand db 5 Setting
+
+# Command: 0 = Monitor (idle)
+beqz rCommand main
+
+# Command: 1 = Launch complete (reset fuel tracking)
+beq rCommand 1 launchComplete
+
+# Unknown command - ignore
+j main
+
+# === COMMAND HANDLERS ===
+
+launchComplete:
+# Signal launch completed to fuel controller
+s FuelController Mode 1
+
+# Wait for rocket to return
+l rFuelLevel FuelController Charge
+beqz rFuelLevel launchComplete
+
+# Clear command
+s db Setting 0
+j main

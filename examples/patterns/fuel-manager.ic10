@@ -1,0 +1,115 @@
+# ==================================================
+# fuel-manager
+# ==================================================
+# Category: patterns
+#
+# Automated fuel pump control for rockets.
+# Manages fuel levels, provides visual feedback, and outputs
+# launch-ready signal.
+# Enhanced version from Zappes/Stationeers fuel controller.
+#
+# Devices:
+#   d0 = Automation (Rocket Controller)
+#   d1 = Pump (Fuel transfer pump)
+#   d2 = Display (Status display)
+#   d3 = LaunchEnable (Optional launch enable signal)
+#   d4 = BufferQuantity (Optional buffer check)
+#
+# ==================================================
+alias Automation d0
+alias Pump d1
+alias Display d2
+alias LaunchEnable d3
+alias BufferQuantity d4
+
+alias currentFuel r6
+alias desiredFuel r7
+
+# === CONFIGURATION ===
+# Pump strength in liters/second
+define PUMP_STRENGTH 500
+
+# Fill percentage (1.0 = 100%, 0.9 = 90%)
+define PUMP_OFF_PERCENTAGE 1.0
+
+# Maximum fuel tank capacity in moles
+define MAX_FUEL 8000
+
+# Display colors
+define COLOR_GREEN 2
+define COLOR_RED 4
+
+# === INITIALIZATION ===
+init:
+    # Set initial state to not ready
+    s db Setting 0
+
+    # Disable pump until we know more
+    s Pump On 0
+    s Pump Setting PUMP_STRENGTH
+
+    # Calculate desired fuel level
+    move desiredFuel MAX_FUEL
+    mul desiredFuel desiredFuel PUMP_OFF_PERCENTAGE
+
+# === MAIN ===
+main:
+    # Read current fuel level
+    l currentFuel Automation Fuel
+
+    # Round for display
+    round r0 currentFuel
+
+    # === DISPLAY STATUS ===
+    # Check if fuel is at desired level
+    brge currentFuel desiredFuel fuelGood
+
+    # Fuel low - red display
+    s Display Color COLOR_RED
+    j showFuel
+
+fuelGood:
+    # Fuel good - green display
+    s Display Color COLOR_GREEN
+
+showFuel:
+    # Show fuel level on display
+    s Display Setting r0
+
+    # === MODE CHECK ===
+    # Only refuel when on pad (mode == 0)
+    l r0 Automation Mode
+    bnez r0 done  # Not on pad - can't refuel
+
+    # === PUMP CONTROL ===
+    bge currentFuel desiredFuel pumpOff
+    j pumpOn
+
+    # === PUMP OFF ===
+pumpOff:
+    s Pump On 0
+
+    # Check launch enable and buffer
+    l r0 LaunchEnable Setting
+    l r1 BufferQuantity Setting
+
+    # Calculate ready signal:
+    # Ready = (LaunchEnable == 1) AND (BufferQuantity > 0)
+    select r2 r0 1 0          # r2 = 1 if LaunchEnable is 1, else 0
+    select r3 r1 0 r2         # r3 = 0 if BufferQuantity > 0, else r2
+
+    # Output ready signal
+    s db Setting r3
+    j done
+
+    # === PUMP ON ===
+pumpOn:
+    s Pump On 1
+
+    # Set housing value to 0 (not ready) while fueling
+    s db Setting 0
+    j done
+
+done:
+    yield
+    j main

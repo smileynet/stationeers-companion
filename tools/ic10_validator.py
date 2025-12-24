@@ -99,9 +99,9 @@ class IC10Validator:
             import tree_sitter
 
             if config.GRAMMAR_PATH.exists():
-                self.language = tree_sitter.Language(str(config.GRAMMAR_PATH), "ic10")
-                self.parser = tree_sitter.Parser()
-                self.parser.set_language(self.language)
+                # Load language from compiled grammar file
+                self.language = tree_sitter.Language(str(config.GRAMMAR_PATH))
+                self.parser = tree_sitter.Parser(self.language)
         except (ImportError, OSError, Exception):
             # tree-sitter not available or grammar not built
             self.parser = None

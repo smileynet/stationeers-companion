@@ -1,0 +1,178 @@
+project:
+  name: stationeers-companion
+  domain: Stationeers IC10 programming
+  version: 1.0.0
+  description: Personal toolkit for Stationeers IC10 programming with Claude AI integration
+
+domain_constraints:
+  ic10:
+    max_lines: 128
+    max_line_length: 90
+    max_bytes: 4096
+    registers: ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "ra", "sp"]
+    devices: ["d0", "d1", "d2", "d3", "d4", "d5", "db"]
+    instructions_per_tick: 128
+
+skill_catalog:
+  code_generation:
+    - ic-generate
+  code_analysis:
+    - ic-explain
+    - ic-validate
+  code_improvement:
+    - ic-optimize
+    - ic-refactor
+  debugging:
+    - ic-debug
+  discovery:
+    - ic-curate
+    - ic-example
+    - ic-lookup
+
+agent_catalog:
+  research:
+    - resource-curator
+    - instruction-researcher
+    - device-researcher
+    - pattern-finder
+    - code-analyzer
+  implementation:
+    - code-generator
+    - code-debugger
+    - code-optimizer
+    - code-refactorer
+    - code-documenter
+    - code-validator
+
+workflows:
+  ic-generate:
+    description: Generate IC10 code with curation-first approach
+    phases:
+      - name: curation
+        agent: resource-curator
+        skip_phrases:
+          - "generate new"
+          - "write fresh"
+          - "create from scratch"
+          - "don't search"
+      - name: research
+        agents:
+          - instruction-researcher
+          - device-researcher
+          - pattern-finder
+        parallel: true
+      - name: generation
+        agent: code-generator
+      - name: documentation
+        agent: code-documenter
+
+  ic-debug:
+    description: Debug and fix IC10 code issues
+    phases:
+      - name: debug
+        agent: code-debugger
+      - name: verification
+        agent: code-validator
+        optional: true
+
+  ic-optimize:
+    description: Optimize IC10 code for efficiency and line count
+    phases:
+      - name: analysis
+        agent: code-analyzer
+      - name: optimization
+        agent: code-optimizer
+
+  ic-refactor:
+    description: Refactor IC10 code for clarity and structure
+    phases:
+      - name: analysis
+        agents:
+          - code-analyzer
+          - pattern-finder
+        parallel: true
+      - name: refactoring
+        agent: code-refactorer
+      - name: documentation
+        agent: code-documenter
+        optional: true
+
+  ic-validate:
+    description: Validate IC10 code for errors and violations
+    phases:
+      - name: external_validation
+        tool: "uv run python -m tools.ic10_validator --stdin --format json"
+      - name: agent_validation
+        agent: code-validator
+
+  ic-curate:
+    description: Curate external IC10 resources
+    phases:
+      - name: search
+        agent: resource-curator
+
+  ic-example:
+    description: Find example IC10 code
+    phases:
+      - name: local_search
+        agent: pattern-finder
+      - name: external_search
+        agent: resource-curator
+        conditional: local_not_found
+      - name: generation
+        agent: code-generator
+        conditional: nothing_found
+
+  ic-explain:
+    description: Explain IC10 code behavior
+    phases:
+      - name: analysis
+        agent: code-analyzer
+
+  ic-lookup:
+    description: Look up device properties or instruction syntax
+    phases:
+      - name: research
+        agents:
+          - instruction-researcher
+          - device-researcher
+        parallel: true
+
+file_patterns:
+  ic10_files: "**/*.ic10"
+  examples: "examples/**/*.ic10"
+  docs: "docs/**/*.md"
+  guides: "guides/**/*.md"
+  outputs: "outputs/**/*.ic10"
+  knowledge: "knowledge/**/*.md"
+
+output_locations:
+  generated_code: "outputs/generated_[timestamp].ic10"
+  optimized_code: "outputs/optimized_[original-name].ic10"
+  validation_reports: "outputs/validation_[timestamp].json"
+  guides: "guides/[topic]-resources.md"
+
+external_tools:
+  ic10_validator:
+    command: "uv run python -m tools.ic10_validator"
+    usage:
+      stdin_format: "--stdin --format json"
+      file_format: "--file {path}"
+      pretty_format: "--file {path} --format pretty"
+    rule_codes:
+      - E001: Syntax error
+      - E002: Line count > 128
+      - E003: Unknown instruction
+      - E004: Invalid register
+      - E005: Invalid device
+      - E006: Undefined branch target
+      - E007: Code size > 4096 bytes
+      - W001: Line length > 90
+      - W002: Missing yield in loop
+      - I001: Code size approaching limit
+
+  steam_scraper:
+    command: "uv run python -m tools.steam_scraper"
+    usage:
+      url_format: "--url {url}"
+    workshop_base: "https://steamcommunity.com/sharedfiles/filedetails/?id={id}"

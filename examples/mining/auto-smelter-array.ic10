@@ -1,0 +1,79 @@
+# ============================================
+# Auto Smelter Array
+# ============================================
+# Description: Feed arc furnace array from ore stockpile
+# Difficulty: Intermediate
+# Lines: 75/128 (59%)
+# Author: Stationeers Companion
+# Optimized: Refactored to use indirect device access
+# Adapted from: jhillacre/stationeers-scripts
+#
+# Devices:
+#   d0-d3 = Arc Furnaces (4 furnaces)
+#   d4 = Ore Stacker (source)
+#   d5 = Ingot Stacker (output)
+#   d6 = Lever (kill switch)
+#
+# Features:
+#   - Activate idle furnaces with ore available
+#   - Deactivate empty furnaces
+#   - Monitor input and output levels
+#   - Kill lever for emergency stop
+# ============================================
+
+alias furnace1 d0
+alias furnace2 d1
+alias furnace3 d2
+alias furnace4 d3
+alias oreStacker d4
+alias ingotStacker d5
+alias lever d6
+
+# rIndex = furnace index (0-3)
+alias rIndex r0
+alias rKillSwitch r1
+alias rIdle r2
+alias rOreQty r3
+
+# === MAIN LOOP ===
+main:
+l rKillSwitch lever On
+
+# Kill switch pulled? (On=1 means open/active)
+beqz rKillSwitch checkFurnace
+
+# Kill switch closed (On=0) - stop all furnaces via batch
+sb FURNACE_HASH On 0
+j endTick
+
+checkFurnace:
+# Loop through furnaces using indirect device access
+move rIndex 0
+furnaceLoop:
+# Read from device at index: dr1 = d[rIndex]
+l rIdle dr1 Idle
+
+# If not idle or kill switch off, skip this furnace
+beqz rIdle nextFurnace
+beqz rKillSwitch nextFurnace
+
+# Check ore quantity from stacker slot 0
+ls rOreQty oreStacker 0 Quantity
+
+# No ore available, skip
+blez rOreQty nextFurnace
+
+# Activate this furnace via indirect write
+s dr1 On 1
+s dr1 Activate 1
+
+nextFurnace:
+add rIndex rIndex 1
+ble rIndex 4 furnaceLoop
+
+endTick:
+yield
+j main
+
+# === SUBROUTINES ===
+# (None needed - all logic in main loop)

@@ -111,4 +111,3 @@ sb r0 On 0
 j ra
 doError:
 s db Setting hangerState
-mv r1 r1

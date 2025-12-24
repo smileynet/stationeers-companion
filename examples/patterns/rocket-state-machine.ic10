@@ -1,0 +1,175 @@
+# ==================================================
+# rocket-state-machine
+# ==================================================
+# Category: patterns
+#
+# Generic rocket flight state machine template.
+# Provides 8-mode dispatching structure for custom rocket operations.
+# Based on Zappes/Stationeers flight controller.
+#
+# Devices:
+#   d0 = Automation (Rocket Controller or housing)
+#
+# Flight Modes (customizable):
+#   0 = Landed
+#   1 = Launching
+#   2 = Traveling
+#   3 = Arriving
+#   4 = In Space (main operations)
+#   5 = Returning
+#   6 = Returned
+#   7 = Emergency (no fuel/critical failure)
+#
+# ==================================================
+alias Automation d0
+
+alias currentMode r6
+
+# === MODE DEFINITIONS ===
+define modeLanded 0
+define modeLaunching 1
+define modeTraveling 2
+define modeArriving 3
+define modeInSpace 4
+define modeReturning 5
+define modeReturned 6
+define modeNoFuel 7
+
+# === MAIN ===
+main:
+    # Read current mode from rocket
+    l currentMode Automation Mode
+
+    # Store mode for external monitoring
+    s db Setting currentMode
+
+    # Dispatch to appropriate mode handler
+    beq currentMode modeLanded processLanded
+    beq currentMode modeLaunching processLaunching
+    beq currentMode modeTraveling processTraveling
+    beq currentMode modeArriving processArriving
+    beq currentMode modeInSpace processInSpace
+    beq currentMode modeReturning processReturning
+    beq currentMode modeReturned processReturned
+    beq currentMode modeNoFuel processNoFuel
+
+    # Unknown mode - fallback
+    j done
+
+    # ==================================================
+    # MODE HANDLERS
+    # Customize these sections for your specific rocket
+    # ==================================================
+
+processLanded:
+    # Rocket on launch pad
+    # - Pre-flight checks
+    # - Module configuration
+    # - Fuel verification
+
+    # Example: Enable modules for cargo loading
+    s ModuleSilo Open 1
+
+    j done
+
+processLaunching:
+    # Launch sequence
+    # - Countdown
+    # - Module activation
+    # - Mode transition
+
+    # Example: Activate launch sequence
+    s Display On 1
+    # Launch countdown here...
+
+    move currentMode modeTraveling
+    j done
+
+processTraveling:
+    # En route to destination
+    # - Trajectory monitoring
+    # - Fuel tracking
+    # - System checks
+
+    j done
+
+processArriving:
+    # Orbital insertion
+    # - Position adjustment
+    # - Prepare for operations
+    # - Activate modules
+
+    move currentMode modeInSpace
+    j done
+
+processInSpace:
+    # Main orbital operations
+    # - Mining operations
+    # - Trading coordination
+    # - Return fuel calculations
+
+    # Example: Check return fuel
+    jal checkReturnFuel
+
+    # Mining operations here...
+    j done
+
+processReturning:
+    # Return trip initiated
+    # - Course correction
+    # - Module shutdown
+    # - Landing preparation
+
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+
+    j done
+
+processReturned:
+    # Back on pad
+    # - Module reconfiguration
+    # - Cargo unloading
+    # - Reset for next mission
+
+    s ModuleSilo Open 1
+    move currentMode modeLanded
+
+    j done
+
+processNoFuel:
+    # Emergency state
+    # - Insufficient fuel for return
+    # - Attempt recovery or await rescue
+
+    # Example: Alert systems
+    s AlertLED On 1
+    s AlertBuzzer On 1
+
+    j done
+
+    # ==================================================
+    # HELPER FUNCTIONS
+    # ==================================================
+
+checkReturnFuel:
+    # Calculate if enough fuel to return
+    l r0 Automation ReturnFuelCost
+    mul r0 r0 1.1  # 10% safety margin
+
+    l r1 Automation Fuel
+    ble r1 r0 emergencyReturn
+
+    # Sufficient fuel
+    j ra
+
+emergencyReturn:
+    # Not enough fuel - initiate return
+    move currentMode modeReturning
+    j done
+
+done:
+    # Set rocket mode for next tick
+    s Automation Mode currentMode
+
+    yield
+    j main

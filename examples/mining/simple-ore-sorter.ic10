@@ -1,0 +1,59 @@
+# ============================================
+# Simple Ore Sorter
+# ============================================
+# Description: Route specific ore type to storage
+# Difficulty: Beginner
+# Lines: 58/128 (45%)
+# Author: Stationeers Companion
+#
+# Devices:
+#   d0 = Sorter/Chute - Device with logic slots
+#   d1 = Stacker      - Storage for target ore
+#
+# Features:
+#   - Sorts ores by hash (item type)
+#   - Routes matching ores to storage
+#   - Configurable target ore
+#   - Hash-based detection
+#
+# Setup:
+#   1. Configure TARGET_HASH for desired ore
+#   2. Connect sorter to d0, stacker to d1
+#   3. Place sorter before stacker in item flow
+# ============================================
+
+alias sorter d0
+alias stacker d1
+alias rItemHash r0
+alias rMatch r1
+
+# Target ore: Iron (change hash for other ores)
+# Common ores: Iron=-666742878, Gold=-409226641
+#             Copper=-1172078909, Silver=687283565
+define TARGET_HASH -666742878
+
+main:
+# Read item hash from sorter slot 0
+ls rItemHash sorter 0 OccupantHash
+
+# Check if slot is occupied
+seq rMatch rItemHash 0
+beqz rMatch noItem
+
+# Item present - check if matches target
+seq rMatch rItemHash TARGET_HASH
+
+# Activate stacker if ore matches
+s stacker On rMatch
+beqz rMatch endTick
+
+# Let item process, then reset
+yield
+s stacker On 0
+
+noItem:
+s stacker On 0
+
+endTick:
+yield
+j main

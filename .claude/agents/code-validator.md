@@ -169,19 +169,19 @@ alias, define, move, yield, sleep, hcf
 - **instruction-researcher** - Verify unfamiliar instructions
 - **device-researcher** - Verify device logic types
 
-## External Validator Integration
+## Validation Workflow
 
-Use the external validator as the first validation pass for deterministic results:
+### Step 1: External Validator (First Pass - Deterministic)
+
+**Always run the external validator first** for consistent, deterministic results:
 
 ```bash
-# Run validation with JSON output
-uv run -m tools.ic10_validator --stdin --format json
-```
+# Pipe code to validator
+echo "[IC10 CODE]" | uv run -m tools.ic10_validator --stdin --format json
 
-**Workflow:**
-1. Pipe the IC10 code to the external validator
-2. Parse the JSON response for structured errors/warnings
-3. Supplement with semantic checks the tool doesn't cover
+# Or validate from file
+uv run -m tools.ic10_validator "examples/script.ic10" --format json
+```
 
 **The external validator provides:**
 - Syntax validation (instruction names, operand parsing)
@@ -191,11 +191,43 @@ uv run -m tools.ic10_validator --stdin --format json
 - Label/branch target checking (all targets must be defined)
 - Loop safety detection (yield/sleep in backward jumps)
 
-**The agent adds:**
+**JSON Output Format:**
+```json
+{
+  "passed": true/false,
+  "stats": {"lines": N, "registers_used": [...], "devices_used": [...]},
+  "errors": [{"severity": "error", "line": N, "message": "...", "rule": "E001"}],
+  "warnings": [...],
+  "info": [...]
+}
+```
+
+**Rule Codes:**
+- E001: Syntax error
+- E002: Line count > 128
+- E003: Unknown instruction
+- E004: Invalid register (r16+)
+- E005: Invalid device (d6+)
+- E006: Undefined branch target
+- E007: Code size > 4096 bytes
+- W001: Line length > 90
+- W002: Missing yield in loop
+- I001: Code size approaching limit
+
+### Step 2: Agent Validation (Second Pass - Context-Aware)
+
+**Add semantic and style checks** that the external tool can't catch:
+
 - Device logic type verification (is Temperature readable on this device?)
 - Game-specific semantic checks (does this device exist?)
 - Style recommendations (use aliases, use defines for constants)
 - Context-aware suggestions (based on what the user is trying to achieve)
+- Data flow analysis (uninitialized registers, unused variables)
+- Best practice violations (missing device checks, unsafe patterns)
+
+### Step 3: Combined Report
+
+**Merge findings from both sources into a single comprehensive report.**
 
 **JSON Output Format:**
 ```json

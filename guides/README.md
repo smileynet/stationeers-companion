@@ -44,3 +44,6 @@ These guides link to external content. Original authors retain all rights to the
 | [Gas Mixing Resources](gas-mixing-resources.md) | Gas mixer, fuel mixing |
 | [Greenhouse Resources](greenhouse-resources.md) | Farming, hydroponics, harvie |
 | [Filtration Resources](filtration-resources.md) | Gas filtration, atmosphere cleanup |
+| [Orbital Rocketry Resources](rocketry-orbital-resources.md) | Orbital trading rocket automation |
+| [Atmospheric Rocketry Resources](rocketry-atmospheric-resources.md) | Atmospheric flight control |
+| [Mining Resources](mining-resources.md) | Mining automation, deep miner, centrifuge, arc furnace |

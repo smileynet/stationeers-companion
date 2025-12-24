@@ -13,6 +13,8 @@ Claude automatically uses these skills based on your request:
 - **ic-debug** - When your IC10 code isn't working
 - **ic-optimize** - When you want to improve code efficiency
 - **ic-lookup** - When you ask about device properties or instructions
+- **ic-refactor** - When you want to improve code structure and clarity
+- **ic-validate** - When you want to check code for errors and constraint violations
 
 Just describe what you need - Claude will select the right skill.
 
@@ -42,7 +44,9 @@ Skills orchestrate specialized agents that work in parallel or sequence:
 
 **Implementation Agents** (write capable):
 - `code-generator` - Generate IC10 code
+- `code-debugger` - Debug and fix broken IC10 code
 - `code-optimizer` - Reduce line count
+- `code-refactorer` - Improve code structure and clarity
 - `code-documenter` - Add documentation
 
 Example workflow for `ic-generate`:
@@ -60,6 +64,23 @@ resource-curator ───────────→ guides/[topic]-resources.m
 instruction-researcher ─┐
 device-researcher ──────┼─→ code-generator ─→ code-documenter
 pattern-finder ─────────┘
+```
+
+Example workflow for `ic-debug`:
+```
+code-debugger ─────────────────→ Fixed code
+         │                              │
+         v                              v
+instruction-researcher ─┐            code-validator (optional)
+device-researcher ──────┼─→ verification
+```
+
+Example workflow for `ic-optimize`:
+```
+code-analyzer ─────────────→ Analysis report
+         │                              │
+         v                              v
+code-optimizer ─────────────→ Optimized code
 ```
 
 ## Project Structure

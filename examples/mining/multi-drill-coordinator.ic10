@@ -1,0 +1,79 @@
+# ============================================
+# Multi-Drill Coordinator
+# ============================================
+# Author: Stationeers Companion
+# Difficulty: Intermediate
+# Lines: 77/128 (60%)
+#
+# Devices:
+#   d0-d3 = Mining Drills (4 drills)
+#   d4 = Battery (power monitor)
+#   d5 = Display (optional status)
+#
+# Features:
+#   - Activates drills based on battery charge
+#   - Charge > 60%: All 4 drills active
+#   - Charge 40-60%: 2 drills active
+#   - Charge < 40%: All drills off
+#   - Prevents battery drain during low solar
+# ============================================
+
+alias drill1 d0
+alias drill2 d1
+alias drill3 d2
+alias drill4 d3
+alias battery d4
+alias display d5
+
+alias rCharge r0
+alias rActiveCount r1
+
+define POWER_HIGH 60  # All drills above this
+define POWER_MED 40   # Some drills above this
+
+main:
+l rCharge battery Charge
+
+# Determine active drill count based on charge
+bgt rCharge POWER_HIGH allActive
+sgt rActiveCount rCharge POWER_MED
+sub rActiveCount rActiveCount 1
+bgt rActiveCount 0 twoActive
+j allOff
+
+allActive:
+move rActiveCount 4
+j setDrills
+
+twoActive:
+move rActiveCount 2
+j setDrills
+
+allOff:
+move rActiveCount 0
+j setDrills
+
+setDrills:
+# Set drill states based on active count
+beq rActiveCount 4 updateDisplay
+beq rActiveCount 2 halfActive
+s drill1 On 0
+s drill2 On 0
+s drill3 On 0
+s drill4 On 0
+j updateDisplay
+
+halfActive:
+s drill1 On 1
+s drill2 On 1
+s drill3 On 0
+s drill4 On 0
+j updateDisplay
+
+updateDisplay:
+bdns display endTick
+s display Setting rActiveCount  # Show active drills
+
+endTick:
+yield
+j main

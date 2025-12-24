@@ -1,0 +1,109 @@
+# Mining Complex Controller - Lines: 109/128 (85%)
+# Advanced 5-state machine for full mining operation coordination
+# Devices: d0=drills, d1=conveyors, d2=sorters, d3=smelters, d4=battery, d5=display
+# States: 0=IDLE, 1=MINING, 2=TRANSPORT, 3=PROCESSING, 4=EMERGENCY
+# Features: State machine, power management, auto-transitions, emergency shutdown
+
+alias drills d0
+alias conveyors d1
+alias sorters d2
+alias smelters d3
+alias battery d4
+alias display d5
+
+alias rState r10
+alias rPower r0
+alias rTemp r1
+
+define STATE_IDLE 0
+define STATE_MINING 1
+define STATE_TRANSPORT 2
+define STATE_PROCESSING 3
+define STATE_EMERGENCY 4
+define POWER_HIGH 70
+define POWER_MED 50
+define POWER_LOW 25
+
+move rState STATE_IDLE
+
+main:
+s display Setting rState
+l rPower battery Charge
+blt rPower POWER_LOW emergencyState
+beq rState STATE_IDLE stateIdle
+beq rState STATE_MINING stateMining
+beq rState STATE_TRANSPORT stateTransport
+beq rState STATE_PROCESSING stateProcessing
+beq rState STATE_EMERGENCY stateEmergency
+j endTick
+
+stateIdle:
+bge rPower POWER_HIGH startMining
+s drills On 0
+s conveyors On 0
+s smelters On 0
+j endTick
+
+startMining:
+move rState STATE_MINING
+s drills On 1
+j endTick
+
+stateMining:
+blt rPower POWER_MED reduceMining
+move rState STATE_TRANSPORT
+s conveyors On 1
+j endTick
+
+reduceMining:
+s drills On 1
+j endTick
+
+stateTransport:
+blt rPower POWER_MED backToIdle
+l rTemp sorters Setting
+bgt rTemp 50 startProcessing
+j endTick
+
+backToIdle:
+move rState STATE_IDLE
+s conveyors On 0
+s sorters On 0
+j endTick
+
+startProcessing:
+move rState STATE_PROCESSING
+s sorters On 1
+s smelters On 1
+j endTick
+
+stateProcessing:
+blt rPower POWER_MED stopProcessing
+l rTemp smelters Setting
+blt rTemp 10 stopProcessing
+j endTick
+
+stopProcessing:
+move rState STATE_TRANSPORT
+s smelters On 0
+j endTick
+
+emergencyState:
+move rState STATE_EMERGENCY
+s drills On 0
+s conveyors On 0
+s sorters On 0
+s smelters On 0
+j endTick
+
+stateEmergency:
+bge rPower POWER_MED recoverFromEmergency
+j endTick
+
+recoverFromEmergency:
+move rState STATE_IDLE
+j endTick
+
+endTick:
+yield
+j main

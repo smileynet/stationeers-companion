@@ -1,0 +1,92 @@
+# ============================================
+# Module Manager
+# ============================================
+# Description: Manages rocket module status and coordination
+# Part of: Multi-chip launch orchestrator system
+# Lines: 45/128 (35%)
+# Category: rockets
+#
+# Devices:
+#   d0 = ModuleOre (Ore mining module)
+#   d1 = ModuleIce (Ice harvesting module)
+#   d2 = ModuleSilo (Cargo silo module)
+#   d3 = StatusDisplay (Optional debug display)
+#
+# Communication:
+#   Writes status to shared registers via batch operations
+#   Responds to commands from Launch Orchestrator
+#
+# Status Registers (written to db Setting slots):
+#   Slot 0 = Ore module status (0=off, 1=on)
+#   Slot 1 = Ice module status
+#   Slot 2 = Silo status
+# ============================================
+
+alias ModuleOre d0
+alias ModuleIce d1
+alias ModuleSilo d2
+alias StatusDisplay d3
+
+alias rOreStatus r0
+alias rIceStatus r1
+alias rSiloStatus r2
+alias rCommand r10
+
+# Status values
+define STATUS_OFF 0
+define STATUS_ON 1
+
+# === MAIN LOOP ===
+main:
+# Read all module statuses
+l rOreStatus ModuleOre Activate
+l rIceStatus ModuleIce Activate
+l rSiloStatus ModuleSilo Open
+
+# Write statuses to shared memory slots
+ss db 0 Setting rOreStatus
+ss db 1 Setting rIceStatus
+ss db 2 Setting rSiloStatus
+
+# Check for commands from Orchestrator
+ls rCommand db 4 Setting
+
+# Command: 0 = None (idle)
+beqz rCommand main
+
+# Command: 1 = Prepare for launch (close modules, lock silo)
+beq rCommand 1 prepareLaunch
+
+# Command: 2 = Abort (turn off modules)
+beq rCommand 2 abortModules
+
+# Unknown command - ignore
+j main
+
+# === COMMAND HANDLERS ===
+
+prepareLaunch:
+# Close silo
+s ModuleSilo Open 0
+
+# Clear silo memory
+s ModuleSilo ClearMemory 1
+
+# Turn off modules
+s ModuleOre Activate 0
+s ModuleIce Activate 0
+
+# Clear command
+s db Setting 0
+j main
+
+abortModules:
+# Turn off all modules
+s ModuleOre Activate 0
+s ModuleIce Activate 0
+
+# Keep silo state as-is (may be in use)
+
+# Clear command
+s db Setting 0
+j main

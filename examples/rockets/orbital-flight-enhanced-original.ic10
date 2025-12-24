@@ -1,0 +1,271 @@
+# ==================================================
+# orbital-flight-enhanced
+# ==================================================
+# Category: rockets
+#
+# WARNING: The Automated Rocket Automation module is marked as
+# deprecated on the Stationeers Wiki. Verify logic types in-game.
+#
+# Enhanced orbital rocket flight controller with extended capabilities.
+# Builds on Zappes/Stationeers flight controller with:
+# - Multiple destination support (theoretical - Destination property unverified)
+# - Extended cargo management
+# - Advanced state tracking
+#
+# IMPORTANT: Mode is READ-ONLY. Use Activate to trigger mode changes:
+#   1 = Launch to Space
+#   2 = Travel in Space
+#   4 = Stop Traveling
+#   5 = Return to Pad
+#
+# Devices:
+#   d0 = Automation (Rocket Controller)
+#   d1 = DisplayStatus (Status display)
+#   d2 = FuelController (Fuel management)
+#   d3 = ModuleOre (Ore mining)
+#   d4 = ModuleIce (Ice harvesting)
+#   d5 = ModuleSilo (Cargo storage)
+#   d6 = DestinationSelector (Dial for destination - theoretical)
+#
+# ==================================================
+alias Automation d0
+alias DisplayStatus d1
+alias FuelController d2
+alias ModuleOre d3
+alias ModuleIce d4
+alias ModuleSilo d5
+alias DestinationSelector d6
+
+alias currentMode r7
+alias previousImportCount r8
+alias importWaitTicks r9
+alias destination r10
+alias siloQuantity r11
+
+# === MODE DEFINITIONS ===
+define modeLanded 0
+define modeLaunching 1
+define modeTraveling 2
+define modeArriving 3
+define modeInSpace 4
+define modeReturning 5
+define modeReturned 6
+define modeNoFuel 7
+
+# === DESTINATIONS ===
+define DEST_LMOS_ORBIT 0
+define DEST_LUNA_ORBIT 1
+define DEST_MARS_ORBIT 2
+define DEST_DEEP_SPACE 3
+
+# === CONFIGURATION ===
+define MAX_WAITING_TICKS 50
+define SILO_CAPACITY 600
+define COUNTDOWN_SECONDS 10
+define FUEL_RESERVE 1.1  # 10% safety margin
+
+# === INITIALIZATION ===
+init:
+    move currentMode modeLanded
+    move previousImportCount 0
+    move importWaitTicks 0
+    s ModuleSilo Open 0
+    s ModuleSilo ClearMemory 1
+    s DisplayStatus On 0
+    move destination DEST_LMOS_ORBIT
+
+# === MAIN ===
+main:
+    # Read current mode
+    l currentMode Automation Mode
+    s db Setting currentMode
+
+    # Dispatch to appropriate mode handler
+    beq currentMode modeLanded processLanded
+    beq currentMode modeInSpace processInSpace
+    j done
+
+# === MODE HANDLERS ===
+
+processLanded:
+    # === LANDED MODE ===
+    # Disable all modules
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+
+    # Open silo for unloading
+    s ModuleSilo Open 1
+
+    # Check silo contents
+    l siloQuantity ModuleSilo Quantity
+    bgtz siloQuantity processUnloading
+
+    # Silo empty - prepare for launch
+    s ModuleSilo Open 0
+    move previousImportCount 0
+    move importWaitTicks 0
+
+    # Check fuel controller ready signal
+    l r0 FuelController Setting
+    beqz r0 done  # Not ready - wait
+
+    # Fuel ready - start launch sequence
+    l r0 DestinationSelector Setting
+    move destination r0
+
+    move r0 COUNTDOWN_SECONDS
+    s DisplayStatus On 1
+    jal launchCountdown
+
+    # Launch complete - transition to traveling
+    move currentMode modeTraveling
+    s ModuleSilo ClearMemory 1
+    j done
+
+processUnloading:
+    # Silo has cargo - wait for unloading
+    j done
+
+processInSpace:
+    # === IN SPACE MODE ===
+    # Check return fuel
+    jal checkReturnFuel
+
+    # Note: Destination property not verified in official wiki
+    # The following destination selection is theoretical
+    # l r0 Automation Destination
+    # beq r0 DEST_DEEP_SPACE processDeepSpace
+    # Default: standard mining operations
+    jal processMining
+    j done
+
+processDeepSpace:
+    # Deep space has different resources
+    # Could prioritize different cargo types
+    jal processMining
+    j done
+
+processMining:
+    # Check for collectable goods
+    l r0 Automation CollectableGoods
+    beqz r0 checkMiningTime
+
+    # Goods available - check silo capacity
+    l r0 ModuleSilo Quantity
+    bge r0 SILO_CAPACITY returnNow
+
+    # Check for import changes (activity detection)
+    l r0 ModuleSilo ImportCount
+    bne r0 previousImportCount countChanged
+
+    # No change - increment wait counter
+    add importWaitTicks importWaitTicks 1
+    bgt importWaitTicks MAX_WAITING_TICKS startMining
+    j done
+
+countChanged:
+    # Import detected - reset wait counter
+    move previousImportCount r0
+    move importWaitTicks 0
+
+startMining:
+    # Activate mining modules
+    s ModuleOre Activate 1
+    s ModuleIce Activate 1
+    j done
+
+checkMiningTime:
+    # Time-based mining cycle
+    # Could implement schedule for different orbital positions
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+    s Automation Activate modeArriving  # Signal arrival
+
+    move currentMode modeTraveling
+    move previousImportCount 0
+    move importWaitTicks 0
+    j done
+
+# === HELPER FUNCTIONS ===
+
+checkReturnFuel:
+    # Calculate return fuel requirement
+    l r0 Automation ReturnFuelCost
+    mul r0 r0 FUEL_RESERVE  # Apply safety margin
+
+    l r1 Automation Fuel
+    ble r1 r0 initiateReturn
+
+    # Sufficient fuel
+    j ra
+
+initiateReturn:
+    # Not enough fuel - initiate return
+    move previousImportCount 0
+    move importWaitTicks 0
+    move currentMode modeReturning
+    j done
+
+returnNow:
+    # Return initiated - stop mining
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+
+    move previousImportCount 0
+    move importWaitTicks 0
+    move currentMode modeReturning
+    j done
+
+launchCountdown:
+    # Launch countdown subroutine
+    # r0 = countdown value on entry
+    # r0 = 0 on exit
+
+countdownLoop:
+    s DisplayStatus Setting r0
+    sleep 1
+    sub r0 r0 1
+    bltz r0 countdownDone
+    j countdownLoop
+
+countdownDone:
+    s DisplayStatus On 0
+    j ra
+
+# === STATUS DISPLAY ===
+# Current mode mapping for display
+# 0 = Landed (Green)
+# 1 = Launching (Yellow/Red)
+# 4 = In Space (Blue)
+# 5 = Returning (Orange)
+
+done:
+    # Update rocket mode
+    s Automation Mode currentMode
+
+    # Update display color based on mode
+    beq currentMode modeLanded statusGreen
+    beq currentMode modeLaunching statusRed
+    beq currentMode modeInSpace statusBlue
+    beq currentMode modeReturning statusOrange
+    j statusGreen
+
+statusGreen:
+    s DisplayStatus Color 2  # Green
+    j yieldLoop
+
+statusRed:
+    s DisplayStatus Color 4  # Red
+    j yieldLoop
+
+statusBlue:
+    s DisplayStatus Color 1  # Blue
+    j yieldLoop
+
+statusOrange:
+    s DisplayStatus Color 3  # Orange
+    j yieldLoop
+
+yieldLoop:
+    yield
+    j main

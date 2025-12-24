@@ -1,0 +1,102 @@
+# ==================================================
+# cargo-module
+# ==================================================
+# Category: patterns
+#
+# Manages orbital rocket cargo modules (Ore, Ice, Silo).
+# Controls module activation, silo access, and tracks imports.
+# Extracted from Zappes/Stationeers rocket controller.
+#
+# Devices:
+#   d0 = ModuleOre (Ore mining module)
+#   d1 = ModuleIce (Ice harvesting module)
+#   d2 = ModuleSilo (Cargo storage module)
+#
+# Logic Types:
+#   Activate - Turn module on/off
+#   Open - Open/close silo for access
+#   Quantity - Current silo contents
+#   ImportCount - Number of imports to silo
+#   ClearMemory - Reset silo memory
+#
+# ==================================================
+alias ModuleOre d0
+alias ModuleIce d1
+alias ModuleSilo d2
+
+alias siloQuantity r0
+alias previousImportCount r1
+alias importWaitTicks r2
+alias maxWaitingTicks r3
+
+# Configuration
+define MAX_WAITING_TICKS 50
+
+# === MAIN ===
+main:
+    # Check current mode (connect to rocket or external controller)
+    l r0 Automation Mode
+
+    # Mode 0 = Landed/Ready
+    # Mode 1-3 = Travel/Arriving
+    # Mode 4 = In Space (mining operations)
+    # Mode 5-6 = Returning/Returned
+
+    bgt r0 3 processInSpace
+
+    # === LANDED MODE ===
+    # Disable modules on pad
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+
+    # Open silo for unloading
+    s ModuleSilo Open 1
+
+    # Check if silo is empty
+    l siloQuantity ModuleSilo Quantity
+    bgtz siloQuantity done
+
+    # Silo empty, prepare for launch
+    s ModuleSilo Open 0
+    move previousImportCount 0
+    move importWaitTicks 0
+
+    j done
+
+    # === IN SPACE MODE ===
+processInSpace:
+    l siloQuantity ModuleSilo Quantity
+
+    # Check if silo is full (adjust threshold as needed)
+    bge siloQuantity 600 returnNow
+
+    # Track import changes
+    l r0 ModuleSilo ImportCount
+    bne r0 previousImportCount countChanged
+
+    # No change - increment wait counter
+    add importWaitTicks importWaitTicks 1
+    bgt importWaitTicks maxWaitingTicks startMining
+    j done
+
+countChanged:
+    # Import detected - reset wait counter
+    move previousImportCount r0
+    move importWaitTicks 0
+
+startMining:
+    # Activate mining modules
+    s ModuleOre Activate 1
+    s ModuleIce Activate 1
+    j done
+
+returnNow:
+    # Time to return - stop mining
+    s ModuleOre Activate 0
+    s ModuleIce Activate 0
+
+    j done
+
+done:
+    yield
+    j main

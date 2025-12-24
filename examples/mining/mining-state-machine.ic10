@@ -1,0 +1,103 @@
+# ============================================
+# Mining State Machine Template
+# ============================================
+# Lines: 103/128 (80%)
+# Difficulty: Advanced
+# Description: Reusable template for mining operations
+#
+# Devices:
+#   d0 = Primary sensor (power, ore level, etc.)
+#   d1 = Drill/Equipment control
+#   d2 = Secondary equipment
+#   d3 = Status display
+#
+# States (customize for your setup):
+#   0 = IDLE       - Waiting for conditions
+#   1 = MINING     - Active extraction
+#   2 = TRANSPORT  - Moving materials
+#   3 = PROCESSING - Smelting/refining
+#   4 = ERROR      - Fault handling
+#
+# Usage: Define state constants, set thresholds,
+#        implement state logic, add error handling
+# ============================================
+
+alias sensor d0
+alias equipment1 d1
+alias equipment2 d2
+alias display d3
+
+alias rState r10
+alias rValue r0
+alias rTemp r1
+
+define STATE_IDLE 0
+define STATE_MINING 1
+define STATE_TRANSPORT 2
+define STATE_PROCESSING 3
+define STATE_ERROR 4
+
+define THRESHOLD_START 70
+define THRESHOLD_STOP 30
+define THRESHOLD_TRANSPORT 50
+define THRESHOLD_PROCESSING 90
+define THRESHOLD_ERROR 10
+
+move rState STATE_IDLE
+
+main:
+s display Setting rState
+l rValue sensor Setting
+blt rValue THRESHOLD_ERROR emergencyState
+
+beq rState STATE_IDLE stateIdle
+beq rState STATE_MINING stateMining
+beq rState STATE_TRANSPORT stateTransport
+beq rState STATE_PROCESSING stateProcessing
+beq rState STATE_ERROR stateError
+j endTick
+
+stateIdle:
+sgt rTemp rValue THRESHOLD_START
+beqz rTemp endTick
+s equipment1 On 1
+move rState STATE_MINING
+j endTick
+
+stateMining:
+sgt rTemp rValue THRESHOLD_TRANSPORT
+beqz rTemp endTick
+move rState STATE_TRANSPORT
+s equipment1 On 0
+s equipment2 On 1
+j endTick
+
+stateTransport:
+sgt rTemp rValue THRESHOLD_PROCESSING
+beqz rTemp endTick
+s equipment2 On 0
+s equipment1 On 1
+move rState STATE_PROCESSING
+j endTick
+
+stateProcessing:
+blt rTemp rValue THRESHOLD_STOP
+beqz rTemp endTick
+move rState STATE_IDLE
+s equipment1 On 0
+s equipment2 On 0
+j endTick
+
+emergencyState:
+s display Setting 999
+move rState STATE_IDLE
+j endTick
+
+stateError:
+j endTick
+
+endTick:
+yield
+j main
+
+# See mining-complex-controller.ic10 for 5-state machine example
