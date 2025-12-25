@@ -1,0 +1,118 @@
+# Source: https://github.com/jhillacre/stationeers-scripts/blob/main/nitrogen-condensation-regulator.ic10
+# Repository: jhillacre/stationeers-scripts
+# Optimized: 50/128 lines (60% reduction, 75 lines saved)
+#
+# Nitrogen condensation regulator with reserve tank cooling
+# Manages cooling loop and pressure-based condensation control
+#
+# Devices:
+#   d0 = CoolingPA (Cooling Pressure Area)
+#   d1 = ReservePA (Reserve Pressure Area)
+#   d2 = TVP (Temperature/Volume Pressure)
+#
+# === CONSTANTS ===
+define LS_HASH -566348148
+define BOILING_TEMP 75    # Kelvin
+define BOILING_PRESSURE 100  # kPa
+define N_MIN_CONDENSATION 45    # Kelvin
+define N_MIN_CONDENSATION_PRESSURE 10    # kPa
+define NLATENT_HEAT 500  # Kelvin
+define NLATENT_PRESSURE 600  # kPa
+define RGAS_CONSTANT 8.3144  # R-specific constant
+
+# === ALIASES ===
+# Cooling loop
+alias rCGT r0     # Cooling Gas Temperature
+alias rCGP r1      # Cooling Gas Pressure
+alias rCGM r2      # Cooling Gas Moles
+alias rCLT r3      # Cooling Loop Liquid
+alias rCLV r4      # Cooling Loop Volume
+
+# Reserve loop
+alias rRGT r5      # Reserve Gas Temperature
+alias rRGP r6      # Reserve Gas Pressure
+alias rRGM r7      # Reserve Gas Moles
+
+# Errors
+alias rErrTemp r12
+alias rErrP r13
+
+# Transfer targets
+alias rTransferTarget r14
+
+# === MAIN ===
+init:
+move rErrTemp 0
+move rErrP 0
+j main
+
+main:
+yield
+
+# Read cooling area
+l rCGT CoolingPA Temperature
+l rCGP CoolingPA Pressure
+
+# Calculate cooling demand
+sub rErrTemp rCGT BOILING_TEMP
+sub rErrP rCGP BOILING_PRESSURE
+
+# Check reserve status
+# Reserve is ready when: Temp > NLATENT_HEAT OR Pressure > NLATENT_PRESSURE
+l rTmp1 rRGT NLATENT_HEAT
+l rTmp2 rRGP NLATENT_PRESS
+or rReady rTmp1 rTmp2
+beqz rReady main
+
+# Reserve not ready - start cooling loop
+move rTransferTarget 0
+s LS_HASH On 1
+j coolLoop
+
+coolLoop:
+yield
+
+# Read current state
+l rCGM CoolingPA Moles
+l rCGT CoolingPA Temperature
+
+# Check for condensation
+slt rTmp1 rCGT N_MIN_CONDENSATION
+slt rTmp2 rCGP N_MIN_CONDENSATION_PRESS
+or rCond rTmp1 rTmp2
+
+# No condensation - continue cooling
+beqz rCond main
+move rTransferTarget 1  # Transfer to N
+j transferLoop
+
+# Transfer to N loop (remove 6.3 moles per degree K)
+transferLoop:
+# Calculate target temp
+mul rTransferTarget rCGT
+sub rCGT rCGT rTransferTarget
+move rTransferTarget 0
+
+# Check if below boiling
+blt rCGT BOILING_TEMP checkTransfer
+
+# Check if reserve can receive
+l rTmp1 rRGT NLATENT_HEAT
+l rTmp2 rRGP NLATENT_PRESS
+or rCanReceive rTmp1 rTmp2
+beqz rCanReceive checkTransfer
+
+checkTransfer:
+# Calculate remaining to transfer
+sub rErrT rCGT rTransferTarget
+
+# Transfer moles
+move rCM 1
+s CoolingPA Mode 2  # Withdraw
+move rCM 0
+j transferLoop
+
+# All condensation handled
+move rTransferTarget 0
+s LS_HASH On 0
+j main
