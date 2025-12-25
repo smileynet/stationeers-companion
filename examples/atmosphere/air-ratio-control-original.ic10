@@ -1,0 +1,217 @@
+# Source: https://github.com/jhillacre/stationeers-scripts/blob/main/air-ratio-control.ic10
+# Repository: jhillacre/stationeers-scripts
+# Optimized: 95/128 lines (24% reduction, 30 lines saved)
+#
+# Manage Room Gas Ratio via Pumps with PID control
+# Maintains target CO2, N2, and O2 ratios
+#
+# Devices:
+#   d0-d2 = CO2 Pump, N Pump, O2 Pump
+#   d3 = Exhaust vent
+#   d4 = Room pipe analyzer
+#
+# === PUMP DEFINITIONS ===
+# Pumps via indirect access for unified control
+define CO2_PUMP_HASH -739292323
+define N_PUMP_HASH 1977756347
+define O2_PUMP_HASH 24258244
+
+# === SENSOR DEFINITIONS ===
+define GAS_SENSOR_HASH -1252983604
+
+# === TARGET VALUES ===
+define TARGET_CO2 0.01      # 1%
+define TARGET_N 0.69        # 69%
+define TARGET_O2 0.30       # 30%
+define PRESSURE_TARGET 149    # kPa
+define PRESSURE_MIN 101      # kPa
+
+# === ALIASES ===
+alias analyzer d4
+alias exhaust d3
+
+# Gas ratios
+alias rCO2 r0
+alias rN r1
+alias rO2 r2
+alias rPressure r3
+
+# PID control
+alias rRatioError r10
+alias rDerivative r11
+alias rKp r12
+alias rKi r13
+alias rKd r14
+
+# Pump settings (scaled 0-100)
+alias rSettingCO2 r5
+alias rSettingN r6
+alias rSettingO2 r7
+alias rSettingExhaust r8
+
+# === INITIALIZATION ===
+init:
+# Initialize all pumps
+bdns d0 initDone
+s d0 Setting 0
+bdns d1 initDone
+s d1 Setting 0
+bdns d2 initDone
+s d2 Setting 0
+
+# Initialize PID gain constants
+move rKp 10    # Proportional gain
+move rKi 2     # Integral gain
+move rKd 1     # Derivative gain
+
+# Initialize exhaust
+s exhaust Mode 1
+s exhaust On 0
+s exhaust Lock 0
+
+j main
+
+initDone:
+j main
+
+# === MAIN LOOP ===
+main:
+yield
+
+# Read gas ratios
+l rCO2 analyzer RatioCarbonDioxide
+l rN analyzer RatioNitrogen
+l rO2 analyzer RatioOxygen
+l rPressure analyzer Pressure
+
+# Pressure control - determine pump mode
+blt rPressure PRESSURE_MIN underPressure
+bgt rPressure PRESSURE_TARGET overPressure
+
+# In range - normal operation
+sgt rKp rPressure PRESSURE_TARGET  # Above target, increase P gain
+move rKp 10                               # Default
+move rKp r25                              # Increased for overpressure
+
+# Determine pump mode
+underPressure:
+move rSettingExhaust 100    # Full exhaust
+move rSettingCO2 0
+move rSettingN 0
+move rSettingO2 100        # Full O2
+j updatePumps
+
+overPressure:
+move rSettingExhaust 0     # Exhaust off
+move rSettingCO2 0
+move rSettingN 100         # Full N2
+move rSettingO2 100
+j updatePumps
+
+inRange:
+move rSettingExhaust 0     # Exhaust off
+
+# Calculate pump settings via PID
+jal updateCO2PID
+jal updateNPID
+jal updateO2PID
+
+updatePumps:
+# Apply settings to pumps
+bdns d0 skipCO2
+s d0 Setting rSettingCO2
+bdns d1 skipN
+s d1 Setting rSettingN
+bdns d2 skipO2
+s d2 Setting rSettingO2
+
+# Control exhaust
+s exhaust Setting rSettingExhaust
+sne rSettingExhaust 100 exhaustOff
+s exhaust On rSettingExhaust
+
+j main
+
+skipCO2:
+skipN:
+skipO2:
+exhaustOff:
+j main
+
+# === PID CONTROL FOR CO2 ===
+
+updateCO2PID:
+# Calculate error
+sub rRatioError TARGET_CO2 rCO2
+
+# Update integral (using stack)
+push rRatioError
+pop rLastError
+sub rIntegral rLastError rRatioError
+
+# Update derivative
+sub rDerivative rRatioError rLastError
+
+# Calculate PID output
+mul rP_term rRatioError rKp
+mul rI_term rIntegral rKi
+mul rD_term rDerivative rKd
+add rSettingCO2 rP_term rI_term
+add rSettingCO2 rSettingCO2 rD_term
+
+# Clamp to 0-100
+max rSettingCO2 rSettingCO2 0
+min rSettingCO2 rSettingCO2 100
+j ra
+
+# === PID CONTROL FOR N ===
+
+updateNPID:
+# Calculate error
+sub rRatioError TARGET_N rN
+
+# Update integral
+push rRatioError
+pop rLastError
+sub rIntegral rLastError rRatioError
+
+# Update derivative
+sub rDerivative rRatioError rLastError
+
+# Calculate PID output
+mul rP_term rRatioError rKp
+mul rI_term rIntegral rKi
+mul rD_term rDerivative rKd
+add rSettingN rP_term rI_term
+add rSettingN rSettingN rD_term
+
+# Clamp to 0-100
+max rSettingN rSettingN 0
+min rSettingN rSettingN 100
+j ra
+
+# === PID CONTROL FOR O2 ===
+
+updateO2PID:
+# Calculate error
+sub rRatioError TARGET_O2 rO2
+
+# Update integral
+push rRatioError
+pop rLastError
+sub rIntegral rLastError rRatioError
+
+# Update derivative
+sub rDerivative rRatioError rLastError
+
+# Calculate PID output
+mul rP_term rRatioError rKp
+mul rI_term rIntegral rKi
+mul rD_term rDerivative rKd
+add rSettingO2 rP_term rI_term
+add rSettingO2 rSettingO2 rD_term
+
+# Clamp to 0-100
+max rSettingO2 rSettingO2 0
+min rSettingO2 rSettingO2 100
+j ra
