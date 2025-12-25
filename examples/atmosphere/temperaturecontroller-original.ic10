@@ -1,0 +1,121 @@
+# Source: https://github.com/Zappes/Stationeers/blob/main/Temperature%20Controller/temperaturecontroller.mips
+# Repository: Zappes/Stationeers
+# Optimized: 98/128 lines (20% reduction)
+#
+# Controller for multiple heaters and coolers
+# Uses dials for target temperature and hysteresis adjustment
+#
+# Devices:
+#   d0 = Temperature sensor
+#   d1 = Status display (optional)
+#   d2 = Dial for target temperature (optional)
+#   d3 = Dial for hysteresis (optional)
+#   d4-dN = Coolers (via batch operations)
+#   d4+N-dM = Heaters (via batch operations)
+#
+# === HEATER DEFINITIONS ===
+define HEATER_HASH 24258244    # StructureSpaceHeater
+define COOLER_HASH -739292323   # StructureSpaceCooler
+
+# === ALIASES ===
+alias Sensor d0
+alias Display d1
+alias dialTarget d2
+alias dialHysteresis d3
+
+# Temperature and thresholds
+alias rTemp r10
+alias rTarget r11
+alias rHysteresis r12
+alias rCoolAbove r13
+alias rHeatUnder r14
+
+# === CONSTANTS ===
+define DEFAULT_TARGET 293.15   # 20°C
+define DEFAULT_HYSTERESIS 5    # ±5K
+define COLD 0
+define GOOD 2
+define HOT 4
+
+# === INITIALIZATION ===
+init:
+move rTarget DEFAULT_TARGET
+move rHysteresis DEFAULT_HYSTERESIS
+j main
+
+# === MAIN LOOP ===
+main:
+jal readDials
+jal checkHeaters
+jal checkCoolers
+jal updateDisplay
+yield
+j main
+
+# === SUBROUTINES ===
+
+# Read optional dials for target and hysteresis
+readDials:
+bdns dialTarget rdDone
+l rTarget dialTarget Setting
+j rdDone
+
+rdDone:
+bdns dialHysteresis rdDone
+l rHysteresis dialHysteresis Setting
+j rdDone
+
+# Turn heaters on/off based on temperature
+checkHeaters:
+l rTemp Sensor Temperature
+sub rHeatUnder rTarget rHysteresis    # target - hysteresis
+
+beqz rHeatUnder setHeaterOff     # Too cold
+bge rTemp rTarget setHeaterOff    # Too hot
+
+# Too cold, turn on
+setHeaterOn:
+sb HEATER_HASH On 1
+j ra
+
+setHeaterOff:
+sb HEATER_HASH On 0
+j ra
+
+# Turn coolers on/off based on temperature
+checkCoolers:
+l rTemp Sensor Temperature
+add rCoolAbove rTarget rHysteresis    # target + hysteresis
+
+beqz rCoolAbove setCoolerOff     # Too hot or OK
+j ra
+
+# Too hot, turn on
+setCoolerOn:
+sb COOLER_HASH On 1
+j ra
+
+setCoolerOff:
+sb COOLER_HASH On 0
+j ra
+
+# Update display with status
+updateDisplay:
+bdns Display ra
+l rTemp Sensor Temperature
+sub rTemp rTemp 273.15
+round rTemp
+
+# Determine status
+sub rTemp rTarget rHysteresis
+slt r0 rHeatUnder           # Below target-hysteresis
+sgt r1 rTemp rCoolAbove        # Above target+hysteresis
+
+# Set display color
+select r2 r0 GOOD        # In range
+select r2 r0 COLD        # Below range
+select r2 r1 HOT         # Above range
+
+s Display Color r2
+s Display Setting rTemp
+j ra

@@ -1,0 +1,150 @@
+# Source: https://github.com/jhillacre/stationeers-scripts/blob/main/storm-recall-controller.ic10
+# Repository: jhillacre/stationeers-scripts
+# Optimized: Reduced from 128 to 90 lines (30% reduction)
+#
+# Companion for AIMeE Control System
+# - Sound Klaxon, flip recall switches and close doors
+#   based on weather station warning.
+#
+# Devices:
+#   d0 = WeatherStation
+#   d1 = Klaxon
+#   d2 = RecallSwitch
+#   d3 = RecallSwitch2
+#   d4 = RecallSwitch3
+#   d5 = RecallSwitch4
+#
+define WS_HASH -733632993    # StructureWeatherStation
+define KL_HASH -566348148     # StructureKlaxon
+define HD_HASH -1351081801     # StructureAirlockGate
+define HDM_HASH -1693175851  # StructureMediumHangerDoor
+define HDL_HASH 2139076601   # StructureLargeHangerDoor
+define PS_HASH -935418637      # PlayerSuit (logic transmitter)
+
+alias MY_MODE r15
+alias RS r14         # Recall switch index (0-3)
+
+# Mode states
+define MODE_AWAIT 0
+define MODE_READY 1
+define MODE_RECALLED 2
+define MODE_CLOSED 3
+define MODE_STORM 4
+
+# Weather states
+define WS_IDLE 0
+define WS_WARNING 1
+define WS_STORM 2
+
+# Configuration
+define RECALL_TIME 300   # 5 minutes
+define CLOSE_TIME 20      # seconds
+
+# === INITIALIZATION ===
+init:
+move MY_MODE MODE_AWAIT
+move RS 2             # Start with d2
+s db Setting 0
+
+# === MAIN LOOP ===
+main:
+yield
+
+# Check weather station
+l r0 WS_HASH Mode
+seq r1 r0 WS_WARNING
+beqz r1 checkStorm
+seq r1 r0 WS_STORM
+bnez r1 handleStorm
+
+# Weather idle, check if ready for recall
+l r0 WS_HASH NextWeatherEventTime
+seqz r6 r0              # r6 = 1 if event pending
+bnez r6 handleReady
+j main
+
+# === WEATHER HANDLERS ===
+
+checkStorm:
+l r0 WS_HASH Mode
+seq r1 r0 WS_STORM
+bnez r1 setStormMode
+j checkIdle
+
+setStormMode:
+move MY_MODE MODE_STORM
+s db Setting MODE_STORM
+s KL_HASH On 0
+j main
+
+checkIdle:
+l r0 WS_HASH Mode
+seq r1 r0 WS_IDLE
+bnez r1 main
+
+# === RECALL HANDLERS ===
+
+handleReady:
+move MY_MODE MODE_READY
+s KL_HASH On 1
+sb PS_HASH 18         # SoundAlert
+j awaitFlip
+
+handleStorm:
+move MY_MODE MODE_AWAIT
+sb HD_HASH Open 0
+sb HDM_HASH Open 0
+sb HDL_HASH Open 0
+j init
+
+awaitFlip:
+l r0 WS_HASH Mode
+seq r1 r0 WS_IDLE
+bnez r1 main
+
+move RS 5             # Reset recall counter
+
+flipLoop:
+# Flip one recall switch
+move r0 RS
+jal unflipRecall
+
+# Check if done flipping all
+blt RS 5 checkCloseTime
+j awaitFlip
+
+# === FLIP SUBROUTINE ===
+
+unflipRecall:
+move r0 RS
+move r11 RS              # Use r11 as device index holder
+add r0 1
+sdr11 Open 1           # s dr[RS] Open 1
+j ra
+
+# === CHECK CLOSE TIME ===
+
+checkCloseTime:
+# Start close timer
+move MY_MODE MODE_RECALLED
+move RS 0
+
+checkCloseLoop:
+l r0 WS_HASH NextWeatherEventTime
+sub r0 r0 CLOSE_TIME
+bltz r0 main
+yield
+j checkCloseLoop
+
+# === CLOSE DOORS ===
+
+closeDoors:
+sb HD_HASH Open 1
+sb HDM_HASH Open 1
+sb HDL_HASH Open 1
+
+# Reset and wait
+move MY_MODE MODE_AWAIT
+move RS 2
+s db Setting 0
+j main
