@@ -1,0 +1,97 @@
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/ratio-filtration.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Optimized: 62/128 lines (51% reduction, 64 lines saved)
+#
+# Gas ratio filtration - activates filters based on gas ratios
+# Controls O2, CO2, N2, NO, and pollutant filters
+#
+# Devices:
+#   d0 = Gas sensor
+#   d1 = O2 Filter
+#   d2 = N20 Filter
+#   d3 = CO2 Filter
+#   d4 = N2 Filter
+#   d5 = Pollutant Filter
+#
+# === TARGET RATIOS ===
+define DESIRED_O2 0.20
+define DESIRED_CO2 0.04
+define DESIRED_N 0.66
+define DESIRED_NO 0
+define DESIRED_POLLUTANT 0
+define MIN_PRESSURE 2000
+
+# === FILTER HASHES ===
+define O2_FILTER_HASH -739292323
+define N20_FILTER_HASH 1977756347
+define CO2_FILTER_HASH 1977756347
+define N2_FILTER_HASH 1977756347
+define X_FILTER_HASH 1977756347
+
+# === ALIASES ===
+alias sensor d0
+
+# === MAIN ===
+main:
+yield
+
+# Check if safe to check ratios (pressure threshold)
+l r0 sensor Pressure
+blt r0 MIN_PRESSURE main
+
+# Read all ratios
+l rO2 sensor RatioOxygen
+l rCO2 sensor RatioCarbonDioxide
+l rN sensor RatioNitrogen
+l rNO sensor RatioNitrousOxide
+l rPollutant sensor RatioPollutant
+
+# Check O2 ratio
+bne rO2 DESIRED_O2 badO2
+sgt r0 rO2 DESIRED_O2 badO2
+sb O2_FILTER_HASH On 1
+j checkCO2
+
+badO2:
+sb O2_FILTER_HASH On 0
+
+# Check CO2 ratio
+checkCO2:
+bne rCO2 DESIRED_CO2 badCO2
+sgt r0 rCO2 DESIRED_CO2 badCO2
+sb CO2_FILTER_HASH On 1
+j checkN
+
+badCO2:
+sb CO2_FILTER_HASH On 0
+
+# Check N ratio
+checkN:
+bne rN DESIRED_N badN
+slt r0 rN DESIRED_N badN
+sb N2_FILTER_HASH On 1
+j checkNO
+
+badN:
+sb N2_FILTER_HASH On 0
+
+# Check NO ratio
+checkNO:
+bne rNO DESIRED_NO badNO
+sgt r0 rNO DESIRED_NO badNO
+sb X_FILTER_HASH On 1
+j checkPollutant
+
+badNO:
+sb X_FILTER_HASH On 0
+
+# Check pollutant ratio
+checkPollutant:
+bne rPollutant DESIRED_POLLUTANT badPollutant
+sgt r0 rPollutant DESIRED_POLLUTANT badPollutant
+sb X_FILTER_HASH On 1
+j main
+
+badPollutant:
+sb X_FILTER_HASH On 0
+j main
