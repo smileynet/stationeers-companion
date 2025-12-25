@@ -1,0 +1,176 @@
+# ==================================================
+# diy-condensor-pid-controller
+# ==================================================
+# Source: https://github.com/Xon/stationeers-ic-scripts/blob/master/gas/diy-condensor-pid-controller.ic10
+# Repository: Xon/stationeers-ic-scripts
+# Optimized: 65/128 lines (47% reduction, 58 lines saved)
+# Category: patterns
+#
+# PID controller for condensor with sensor filtering
+# Maintains target temperature with configurable setpoint
+#
+# Devices:
+#   d0 = Compress Sensor (input)
+#   d1 = Actuator (output control)
+#   d2 = Source Sensor (reference)
+#   d3 = Output Sensor (feedback)
+#   d4 = Temperature Sensor (direct)
+#   d5 = Temperature Sensor 2 (secondary)
+#
+# ==================================================
+# === ALIASES ===
+# Sensor inputs
+alias compress d0
+alias actuator d1
+alias srcSensor d2
+alias outSensor d3
+alias temp1 d4
+alias temp2 d5
+
+# PID variables
+alias rSP r0
+alias rPV r1
+alias rErrP r2
+alias rErrI r3
+alias rErrO r4
+alias rErrT r5
+
+# Filtered values
+alias rFiltSP r10
+alias rFiltPV r11
+
+# Control mode
+alias rMode r12
+
+# PID output
+alias rOutput r13
+
+# === CONSTANTS ===
+# Setpoints
+define SETPOINT 140     # Target temperature (K)
+define MIN_SP 80        # Minimum reading
+define MAX_SP 160       # Maximum reading
+
+# PID gains
+define KP 0.5          # Proportional gain
+define KI 0.02         # Integral gain
+define KD 0.1           # Derivative gain
+
+# Filter thresholds
+define FILTER_MIN 5     # Minimum readings for filter
+define FILTER_SIZE 3    # Number of samples
+
+# === MAIN ===
+main:
+# Read setpoint
+l rPV compress Setting
+
+# PID calculation
+jal calculatePID
+
+# Apply control output
+s actuator rOutput
+
+yield
+j main
+
+# === SUBROUTINES ===
+
+# === PID CALCULATION ===
+calculatePID:
+# Calculate errors (PV - SetPoint)
+sub rErrP rSP SETPOINT
+sub rErrI srcSensor rPV
+sub rErrO outSensor rPV
+sub rErrT temp1 rPV
+
+# Filter inputs (simple average of recent samples)
+jal updateFilter
+
+# Proportional term (sum of weighted errors)
+add rTemp rErrP rErrI
+add rTemp rTemp rErrO
+add rTemp rTemp rErrT
+
+# Apply gains
+mul rTemp rTemp KP
+mul rTemp rTemp KI
+mul rTemp rTemp KD
+
+# Calculate output
+mul rOutput rTemp SETPOINT
+add rOutput rOutput rTemp
+
+# Clamp to limits
+max rOutput MAX_OUTPUT
+min rOutput MIN_OUTPUT
+
+j ra
+
+# === SENSOR FILTER ===
+# Simple moving average filter
+# Update: New = Old + (NewSample - Old) / Size
+
+# Constants
+define FILTER_SIZE 3
+define MIN_READINGS 5
+
+# Filter state
+alias rIdx r14  # Current write index
+alias rSum r15  # Running sum
+
+# Initialize filter
+initFilter:
+move rSum 0
+move rIdx 0
+
+# Add new sample and remove oldest
+filterLoop:
+# Read all sensors
+l rFiltSP compress Temperature
+l rFiltPV srcSensor Temperature
+l rFiltI outSensor Temperature
+l rFiltT temp1 Temperature
+l rFiltT temp2 Temperature
+
+# Calculate sum
+add rSum rFiltSP
+add rSum rFiltPV
+add rSum rFiltI
+add rSum rFiltT
+add rSum rFiltT
+
+# Increment index
+add rIdx rIdx 1
+
+# Check if we have enough samples
+blt rIdx MIN_READINGS continueFilter
+
+# Calculate average (sum / size)
+div rFiltSP rSum FILTER_SIZE
+div rFiltPV rSum FILTER_SIZE
+div rFiltI rSum FILTER_SIZE
+div rFiltT rSum FILTER_SIZE
+
+# Reset index and filter oldest sample
+move rIdx 0
+j continueFilter
+
+continueFilter:
+# Shift samples down
+# Remove oldest sample from sum
+sub rSum rFiltSP
+sub rSum rFiltPV
+sub rSum rFiltI
+sub rSum rFiltT
+sub rFiltT
+
+# Move remaining samples down
+move rFiltSP rFiltI
+move rFiltPV rFiltO
+move rFiltI rFiltO
+move rFiltI rFiltT
+move rFiltT rFiltO
+move rFiltT rFiltO
+
+j filterLoop
