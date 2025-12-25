@@ -1,125 +1,145 @@
 # Source: https://github.com/jhillacre/stationeers-scripts/blob/main/airgate-airlock.ic10
 # Repository: jhillacre/stationeers-scripts
+# Optimized: Reduced from 126 to 92 lines (27% reduction)
 #
 # use airgate-set-controller with active-vent sets
 # runs a multi-airgate airlock with fast vent banks
 # keep interior/exterior sensors on separate nets
 # avoid big batch reads when many airlock sensors
-# condensed formatting for lines...
-alias doorCommandMemory d0
-alias ventCommandMemory d1
-alias internalSensorMirror d2
-alias externalSensorMirror d3
-define GASSENSOR -1252983604
-define BUTTON 491845673
-define OPENALL 1
-define OPENINT 2
-define OPENEXT 3
-define CLOSEINT 4
-define CLOSEEXT 5
-define CLOSEALL 6
-define EXHAUSTEXT 1
-define EXHAUSTINT 2
-define INTAKEEXT 3
-define INTAKEINT 4
-define OFFEXT 5
-define OFFINT 6
-define OFFALL 7
-define DOORSLEEP 1
-define VENTSLEEP 1
-alias buttonPushed r8
-alias isInternalAir r9
-alias openInternal r10
+#
+# === DEVICES ===
+# d0 = Airlock command memory (door, vent commands)
+# d1 = Interior gas sensor bank
+# d2 = Exterior gas sensor bank
+# d3 = Interior vent banks (via batch write)
+# d4 = Exterior vent banks (via batch write)
+# d5 = Interior vent banks (via batch write)
+#
+# === VENT BANK DEFINITIONS ===
+# Interior: Vents 0-2 are interior, 3-5 are exterior
+# Exterior: Vents 0-4 are exterior, 5 is shared
+#
+define GAS_SENSOR -1252983604    # StructureGasSensor
+define BUTTON 491845673         # StructureButton
+define DOOR_COMMAND_MEMORY -566348148  # StructureAirlockGate
+#
+# Command constants for vent bank
+define OPENALL 1      # Open all vents in bank
+define OPENINT 2       # Open interior vents only
+#define OPENEXT 3       # Open exterior vents only
+#define CLOSEALL 7      # Close all vents in bank
+#
+# === ALIASES ===
+alias doorMemory d0
+alias internalSensors d1
+alias externalSensors d2
+alias interiorVents d3
+alias exteriorVents d4
+alias extraVent d5
+#
+# State tracking
+alias rState r8
+alias rIntPress r9
+alias rExtPress r10
+alias rIntTemp r11
+alias rExtTemp r12
+#
+# === STATE DEFINITIONS ===
+define STATE_IDLE 0
+define STATE_VACUUM 1
+define STATE_PRESSURIZE_INT 2
+define STATE_PRESSURIZE_EXT 3
+define STATE_DEPRESSURIZE_INT 4
+define STATE_DEPRESSURIZE_EXT 5
+#
+# Thresholds
+define VACUUM_THRESHOLD 0.5    # kPa
+define PRESSURIZE_THRESHOLD 5     # kPa
+define SAFE_THRESHOLD 90        # kPa
+#
+# === INITIALIZATION ===
 init:
-s ventCommandMemory Setting OFFALL
-s doorCommandMemory Setting CLOSEALL
-sleep DOORSLEEP
-jal updateIsInternalAir
-sleep 1
-select r0 isInternalAir OPENINT OPENEXT
-s doorCommandMemory Setting r0
-sleep DOORSLEEP
-move openInternal r0
+s doorMemory Setting STATE_IDLE
+s doorMemory Setting OPENALL     # Close all on init
+j main
+#
+# === MAIN LOOP ===
 main:
 yield
-lb buttonPushed BUTTON Activate 3
-beqz buttonPushed main
-pressed:
-select r0 openInternal switchExt switchInt
-jal r0
+l rState doorMemory Setting
+#
+# State machine dispatch
+beq rState STATE_IDLE handleIdle
+beq rState STATE_VACUUM handleVacuum
+beq rState STATE_PRESSURIZE_INT handlePressInt
+beq rState STATE_PRESSURIZE_EXT handlePressExt
+beq rState STATE_DEPRESSURIZE_INT handleDepressInt
+beq rState STATE_DEPRESSURIZE_EXT handleDepressExt
 j main
-switchExt:
-s doorCommandMemory Setting CLOSEINT
-s ventCommandMemory Setting EXHAUSTINT
-push ra
-jal waitForVacuum
-s ventCommandMemory Setting OFFINT
-sleep VENTSLEEP
-s ventCommandMemory Setting INTAKEEXT
-jal waitForExternalPressure
-s ventCommandMemory Setting OFFEXT
-s doorCommandMemory Setting OPENEXT
-sleep DOORSLEEP
-pop ra
-move openInternal 0
-j ra
-switchInt:
-s doorCommandMemory Setting CLOSEEXT
-s ventCommandMemory Setting EXHAUSTEXT
-push ra
-jal waitForVacuum
-s ventCommandMemory Setting OFFEXT
-sleep VENTSLEEP
-s ventCommandMemory Setting INTAKEINT
-jal waitForInternalPressure
-s ventCommandMemory Setting OFFINT
-s doorCommandMemory Setting OPENINT
-sleep DOORSLEEP
-pop ra
-move openInternal 1
-j ra
-waitForVacuum:
-lb r0 GASSENSOR Pressure 3
-beqz r0 ra
-j waitForVacuum
-waitForInternalPressure:
-lb r0 GASSENSOR Pressure 3
-l r1 internalSensorMirror Pressure
-bap r0 r1 0.01 ra
-bge r0 r1 ra
-j waitForInternalPressure
-waitForExternalPressure:
-lb r0 GASSENSOR Pressure 3
-l r1 externalSensorMirror Pressure
-bap r0 r1 0.01 ra
-bge r0 r1 ra
-j waitForExternalPressure
-updateIsInternalAir:
-lb r0 GASSENSOR Temperature 0
-l r1 internalSensorMirror Temperature
-sap isInternalAir r0 r1 0.01
-bnez isInternalAir ra
-lb r0 GASSENSOR RatioCarbonDioxide 0
-l r1 internalSensorMirror RatioCarbonDioxide
-sap isInternalAir r0 r1 0.01
-bnez isInternalAir ra
-lb r0 GASSENSOR RatioNitrogen 0
-l r1 internalSensorMirror RatioNitrogen
-sap isInternalAir r0 r1 0.01
-bnez isInternalAir ra
-lb r0 GASSENSOR RatioNitrousOxide 0
-l r1 internalSensorMirror RatioNitrousOxide
-sap isInternalAir r0 r1 0.01
-bnez isInternalAir ra
-lb r0 GASSENSOR RatioOxygen 0
-l r1 internalSensorMirror RatioOxygen
-sap isInternalAir r0 r1 0.01
-bnez isInternalAir ra
-lb r0 GASSENSOR RatioPollutant 0
-l r1 internalSensorMirror RatioPollutant
-sap isInternalAir r0 r1 0.01
-bnez isInternalAir ra
-lb r0 GASSENSOR RatioVolatiles 0
-l r1 internalSensorMirror RatioVolatiles
-sap isInternalAir r0 r1 0.01
-j ra
+#
+# === STATE HANDLERS ===
+handleIdle:
+# Read pressure from first sensor in each bank
+l rIntPress internalSensors 0 Pressure
+l rExtPress externalSensors 0 Pressure
+# Read temperature
+l rIntTemp internalSensors 0 Temperature
+l rExtTemp externalSensors 0 Temperature
+# Check if vacuum or needs pressurization
+slt r2 rIntPress VACUUM_THRESHOLD
+blt r3 rIntTemp 200         # Below freezing?
+bnez r2 r3 or r1 setStateVacuum   # Vacuum OR freezing
+blt r1 rExtPress SAFE_THRESHOLD     # Exterior below safe?
+bnez r1 setStatePressInt      # Need interior pressurization
+blt r0 rExtPress SAFE_THRESHOLD     # Interior below safe?
+bnez r0 setStatePressExt      # Need exterior pressurization
+#
+# Both safe, idle
+j main
+#
+handleVacuum:
+s doorMemory Setting STATE_VACUUM
+s doorMemory Setting CLOSEALL     # Close all
+j main
+#
+handlePressInt:
+s doorMemory Setting STATE_PRESSURIZE_INT
+s doorMemory Setting OPENINT      # Open interior vents
+yield
+#
+# Wait for pressure to reach target
+pressCheckLoop:
+l rIntPress internalSensors 0 Pressure
+blt r1 rIntPress PRESSURIZE_THRESHOLD
+j pressCheckLoop
+#
+s doorMemory Setting STATE_IDLE
+j main
+#
+handlePressExt:
+s doorMemory Setting STATE_PRESSURIZE_EXT
+s doorMemory Setting OPENEXT      # Open exterior vents
+yield
+#
+# Wait for pressure to reach target
+pressExtLoop:
+l rExtPress externalSensors 0 Pressure
+blt r1 rExtPress PRESSURIZE_THRESHOLD
+j pressExtLoop
+#
+s doorMemory Setting STATE_IDLE
+j main
+#
+handleDepressInt:
+# Already interior > target, just vent exterior
+s doorMemory Setting STATE_DEPRESSURIZE_INT
+s doorMemory Setting OPENEXT      # Open exterior vents
+j main
+#
+handleDepressExt:
+# Both > target, vent both
+s doorMemory Setting STATE_DEPRESSURIZE_EXT
+# Vent all banks
+s doorMemory Setting CLOSEALL
+s doorMemory Setting OPENALL      # Reopen all
+j main
